@@ -11,6 +11,9 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 
+import tools.shoreMap.Mutation;
+import tools.shoreMap.ShoreMapLine;
+
 public class kmerUtils {
 
 	private static HashMap<String, String> methodsHelp= new HashMap<String, String>();
@@ -23,6 +26,7 @@ public class kmerUtils {
 		methodsHelp.put("sortKmersLink", "sortKmersLink - sorts the kmers and adds a flag if it is linked to the previous read\n\targs = <kmer file> <kmer position> <max jump>\n");
 		methodsHelp.put("generateKmers", "generateKmers - generates all kmers of length n\n\targs = <n>\n");
 		methodsHelp.put("generateSeeds", "generateSeeds - generates seeds from a kmer file\n\targs = <kmerFile> <kmer position> <min seed size> <outPrefix>\n");
+		methodsHelp.put("mapListMutationKmers", "mapListMutationKmers - takes a map.list and a list of mutations (Chr\\tposition\\tnewNuc) and prints two files, one with the kmers of size n to remove and one with the ones to add\n\targs = <map.list> <mutation file> <kmer size n> <outPrefix>\n");
 		
 		//check which method to run
 		if(args.length>0){
@@ -34,6 +38,8 @@ public class kmerUtils {
 				generateKmers(Integer.parseInt(args[1]),"");
 			}else if(args[0].equals("generateSeeds")&&args.length==5){
 				generateSeeds(args[1],Integer.parseInt(args[2]),Integer.parseInt(args[3]),args[4]);
+			}else if(args[0].equals("mapListMutationKmers")&&args.length==5){
+				mapListMutationKmers(args[1],args[2],Integer.parseInt(args[3]),args[4]);
 			}else if(args[0].equals("method2")&&args.length>1){
 				
 			}else{
@@ -58,6 +64,43 @@ public class kmerUtils {
 			return methodsHelp.get(method);
 		}
 		return printHelp();
+	}
+	
+	private static void mapListMutationKmers(String mapListFile,String mutationFile,int n, String outPrefix) throws Exception{
+		BufferedReader mutationReader = new BufferedReader(new FileReader(mutationFile));
+		HashMap<String, ArrayList<Mutation>> mutations= new HashMap<String, ArrayList<Mutation>>();
+		Mutation mutation;
+		for(String s=mutationReader.readLine();s!=null;s=mutationReader.readLine()){
+			String l[]=s.split("\t");
+			mutation=new Mutation(l[0], Integer.parseInt(l[1]), l[2].charAt(0));
+			if(!mutations.containsKey(mutation.getChr())){
+				mutations.put(mutation.getChr(), new ArrayList<Mutation>());
+			}
+			mutations.get(mutation.getChr()).add(mutation);
+		}
+		mutationReader.close();
+		BufferedReader mapListReader = new BufferedReader(new FileReader(mapListFile));
+		ShoreMapLine sml;
+		BufferedWriter origWriter= new BufferedWriter(new FileWriter(outPrefix+"_orig.kmers"));
+		BufferedWriter mutatedWriter= new BufferedWriter(new FileWriter(outPrefix+"_mutated.kmers"));
+		for(String s= mapListReader.readLine();s!=null;s=mapListReader.readLine()){
+			sml= new ShoreMapLine(s);
+			if(mutations.containsKey(sml.getChr())){
+				//check for mutation... this has to be rewritten if there are a lot of mutations or an unfiltered map.list
+				String orig=sml.getSeq();
+				String mutated=sml.getMutatedSeq(mutations.get(sml.getChr()));
+				if(!orig.equals(mutated)){
+					//kmerize
+					for(int i=0,j=n;j<orig.length();i++,j++){
+						origWriter.write(orig.substring(i,j)+"\n");
+						mutatedWriter.write(mutated.substring(i, j)+"\n");
+					}
+				}
+			}
+		}
+		mapListReader.close();
+		origWriter.close();
+		mutatedWriter.close();
 	}
 	
 	private static void generateKmers(int n,String s)throws Exception{
@@ -91,6 +134,7 @@ public class kmerUtils {
 		BufferedWriter outLong= new BufferedWriter(new FileWriter(outPrefix+"_long.txt"));
 		
 		boolean found=true;
+		System.err.println("Unique seeds...");
 		while(found){
 			System.err.print("\t"+kmers.size()+" seeding"+"\r");
 			found=false;
@@ -102,7 +146,7 @@ public class kmerUtils {
 					seeds.add(new seedData(kmer));
 				}
 			}
-			System.err.print("\t"+kmers.size()+seeds.size()+"      "+"\r");
+			System.err.print("\t"+kmers.size()+" "+seeds.size()+"      "+"\r");
 			found=seeds.size()>0;
 			//extend seeds
 			HashSet<kmerData> usedKmers=new HashSet<kmerData>();
@@ -122,8 +166,9 @@ public class kmerUtils {
 				suffixes.remove(kmerData.suffix());
 			}
 		}
+		System.err.println("Repetitive structures...");
 		while(kmers.size()>0){
-			System.err.println("\t"+kmers.size()+"                \r");
+			System.err.print("\t"+kmers.size()+"                \r");
 			//extract cyclic seeds
 			for(seedData finalSeed : generateSeeds_extend(new seedData(kmers.get(0)), kmers)){
 				kmers.removeAll(finalSeed.getKmers());
@@ -178,6 +223,7 @@ public class kmerUtils {
 		out.close();
 		outLong.close();
 //		return seeds;
+		System.err.println("Done!");
 	}
 	
 	private static ArrayList<seedData> generateSeeds_extend(seedData seed, ArrayList<kmerData> kmers){
