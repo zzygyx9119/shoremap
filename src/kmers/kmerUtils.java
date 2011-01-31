@@ -11,6 +11,8 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 
+import tools.fastq.fastqParser;
+import tools.fastq.fastqUtils;
 import tools.shoreMap.Mutation;
 import tools.shoreMap.ShoreMapLine;
 
@@ -27,6 +29,8 @@ public class kmerUtils {
 		methodsHelp.put("generateKmers", "generateKmers - generates all kmers of length n\n\targs = <n>\n");
 		methodsHelp.put("generateSeeds", "generateSeeds - generates seeds from a kmer file\n\targs = <kmerFile> <kmer position> <min seed size> <outPrefix>\n");
 		methodsHelp.put("mapListMutationKmers", "mapListMutationKmers - takes a map.list and a list of mutations (Chr\\tposition\\tnewNuc) and prints two files, one with the kmers of size n to remove and one with the ones to add\n\targs = <map.list> <mutation file> <kmer size n> <outPrefix>\n");
+		methodsHelp.put("kmerize", "kmerize - prints all kmers of size n in each sequence\n\targs = <fastqFile> <n>\n");
+		methodsHelp.put("kmerizeEnd", "kmerizeEnd - prints the kmers in the end of a read missing when reducing from n to m\n\targs = <fastqFile> <n> <m>\n");
 		
 		//check which method to run
 		if(args.length>0){
@@ -40,6 +44,12 @@ public class kmerUtils {
 				generateSeeds(args[1],Integer.parseInt(args[2]),Integer.parseInt(args[3]),args[4]);
 			}else if(args[0].equals("mapListMutationKmers")&&args.length==5){
 				mapListMutationKmers(args[1],args[2],Integer.parseInt(args[3]),args[4]);
+			}else if(args[0].equals("kmerize")&&args.length==3){
+				kmerize(args[1],Integer.parseInt(args[2]));
+			}else if(args[0].equals("kmerize")&&args.length==3){
+				kmerize(args[1],Integer.parseInt(args[2]));
+			}else if(args[0].equals("kmerizeEnd")&&args.length==4){
+				kmerizeEnd(args[1],Integer.parseInt(args[2]),Integer.parseInt(args[3]));
 			}else if(args[0].equals("method2")&&args.length>1){
 				
 			}else{
@@ -64,6 +74,70 @@ public class kmerUtils {
 			return methodsHelp.get(method);
 		}
 		return printHelp();
+	}
+	
+	protected static String reverseComplementSeq(String seq){
+		String revCompSeq="";
+		for(int i=0;i<seq.length();i++){
+			revCompSeq= complement(seq.charAt(i))+revCompSeq;
+		}
+		return revCompSeq;
+	}
+	
+	private static char complement(char c){
+		switch (c) {
+		case 'A':
+			return 'T';
+		case 'T':
+			return 'A';
+		case 'G':
+			return 'C';
+		case 'C':
+			return 'G';
+		case 'N':
+			return 'N';
+		default:
+			System.err.println("unknown nucleotide: "+c+", will return "+c);
+			return c;
+		}
+	}
+	
+	protected static String kmerToUse(String kmer){
+		String revKmer=reverseComplementSeq(kmer);
+		if(kmer.compareTo(revKmer)<0){
+			return kmer;
+		}else{
+			return revKmer;
+		}
+	}
+	
+	private static void printKmer(String kmer){
+		System.out.println(kmerToUse(kmer));
+	}
+	
+	public static void kmerize(String fastqFile, int n)throws Exception{
+		fastqParser fqp=new fastqParser(new BufferedReader(new FileReader(fastqFile)),fastqUtils.getPrefix(fastqFile));
+		String seq;
+		for(;fqp.hasNext();){
+			seq=fqp.next().getSeq();
+			for(int i=0,j=n;j<=seq.length();i++,j++){
+				printKmer(seq.substring(i, j));
+			}
+		}
+	}
+	
+	public static void kmerizeEnd(String fastqFile, int n, int m)throws Exception{
+		if(m>=n){
+			throw new Exception("m ("+m+") must be smaller than n ("+n+")");
+		}
+		fastqParser fqp=new fastqParser(new BufferedReader(new FileReader(fastqFile)),fastqUtils.getPrefix(fastqFile));
+		for(;fqp.hasNext();){
+			String seq= fqp.next().getSeq();
+			seq=seq.substring(seq.length()-n+1);
+			for(int i=0,j=m;j<=seq.length();i++,j++){
+				printKmer(seq.substring(i, j));
+			}
+		}
 	}
 	
 	private static void mapListMutationKmers(String mapListFile,String mutationFile,int n, String outPrefix) throws Exception{
@@ -92,8 +166,8 @@ public class kmerUtils {
 				if(!orig.equals(mutated)){
 					//kmerize
 					for(int i=0,j=n;j<orig.length();i++,j++){
-						origWriter.write(orig.substring(i,j)+"\n");
-						mutatedWriter.write(mutated.substring(i, j)+"\n");
+						origWriter.write(kmerToUse(orig.substring(i,j))+"\n");
+						mutatedWriter.write(kmerToUse(mutated.substring(i, j))+"\n");
 					}
 				}
 			}
@@ -351,11 +425,11 @@ class seedData{
 	}
 	
 	public boolean extendEnd(kmerData ext){
-		return kmers.get(kmers.size()-1).endsWith(ext);
+		return kmers.get(kmers.size()-1).extendRight(ext);
 	}
 	
 	public boolean extendStart(kmerData ext){
-		return kmers.get(0).startsWith(ext);
+		return kmers.get(0).extendLeft(ext);
 	}
 	
 	public boolean contains(kmerData kd){
@@ -387,6 +461,7 @@ class kmerData implements Comparable<kmerData>,Serializable{
 	private int pos;
 	private int permutations;
 	private String rep;
+	private String kmerSeqRev;
 	private String[] data;
 	
 	public kmerData(int pos, String s) throws Exception{
@@ -397,6 +472,7 @@ class kmerData implements Comparable<kmerData>,Serializable{
 		super();
 		this.pos = pos;
 		this.data = data;
+		kmerSeqRev=kmerUtils.reverseComplementSeq(data[pos]);
 		rep=data[pos];
 		permutations=0;
 		String tmp=rep;
@@ -412,6 +488,22 @@ class kmerData implements Comparable<kmerData>,Serializable{
 				break;
 			}
 		}
+	}
+	
+	public String suffixRev(){
+		return suffixRev(1);
+	}
+	
+	public String suffixRev(int n){
+		return getKmerRev().substring(n);
+	}
+	
+	public String prefixRev(int n){
+		return getKmerRev().substring(0, getKmer().length()-n);
+	}
+	
+	public String prefixRev(){
+		return prefix(1);
 	}
 	
 	public String suffix(int n){
@@ -430,37 +522,40 @@ class kmerData implements Comparable<kmerData>,Serializable{
 		return prefix(1);
 	}
 	
-	public boolean startsWith(String prefix){
+	private boolean extendLeft(String prefix){
 		return getKmer().startsWith(prefix);
 	}
 	
-	public boolean startsWith(kmerData prefix,int n){
-		return startsWith(prefix.suffix(n));
+	public boolean extendLeft(kmerData prefix,int n){
+		return extendLeft(prefix.suffix(n));
 //		return startsWith(prefix.getKmer().substring(n));
 	}
 	
-	public boolean startsWith(kmerData prefix){
-		return startsWith(prefix,1);
+	public boolean extendLeft(kmerData prefix){
+		return extendLeft(prefix,1);
 	}
 	
-	public boolean endsWith(String suffix){
+	private boolean extendRight(String suffix){
 		return getKmer().endsWith(suffix);
 	}
 	
-	public boolean endsWith(kmerData suffix, int n){
-		return endsWith(suffix.prefix(n));
+	public boolean extendRight(kmerData suffix, int n){
+		return extendRight(suffix.prefix(n));
 		//return endsWith(suffix.getKmer().substring(0, suffix.getKmer().length()-n));
 	}
 	
-	public boolean endsWith(kmerData suffix){
-		return endsWith(suffix,1);
+	public boolean extendRight(kmerData suffix){
+		return extendRight(suffix,1);
 	}
 	
 	public String getKmer(){
 		return data[pos];
 	}
+	
+	public String getKmerRev(){
+		return kmerSeqRev;
+	}
 
-	@Override
 	public int compareTo(kmerData o) {
 		if(this.rep.equals(o.rep))
 			return this.permutations-o.permutations;
