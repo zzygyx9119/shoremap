@@ -84,6 +84,22 @@ public class kmerUtils {
 		return revCompSeq;
 	}
 	
+	protected static String reverse(String seq){
+		String rev="";
+		for(int i=0;i<seq.length();i++){
+			rev=seq.charAt(i)+rev;
+		}
+		return rev;
+	}
+	
+	protected static String complement(String seq){
+		String comp="";
+		for(int i=0;i<seq.length();i++){
+			comp=comp+complement(seq.charAt(i));
+		}
+		return comp;
+	}
+	
 	private static char complement(char c){
 		switch (c) {
 		case 'A':
@@ -195,9 +211,9 @@ public class kmerUtils {
 		for(String s=in.readLine();s!=null;s=in.readLine()){
 			kmer=new kmerData(pos, s);
 			kmers.add(kmer);
-			suffixes.add(kmer.suffix());
+			suffixes.add(kmerToUse(kmer.suffix()));
 		}
-		Collections.sort(kmers);
+//		Collections.sort(kmers);
 		//Find seeds
 //		seedData seed= new seedData(kmers.get(0));
 		int seedCount=0;
@@ -210,17 +226,17 @@ public class kmerUtils {
 		boolean found=true;
 		System.err.println("Unique seeds...");
 		while(found){
-			System.err.print("\t"+kmers.size()+" seeding"+"\r");
+			System.err.print("    "+kmers.size()+" seeding"+"\r");
 			found=false;
 			//find unique seeds
 			seeds=new ArrayList<seedData>();
 			for(int i=0;i<kmers.size();i++){
 				kmer=kmers.get(i);
-				if(!suffixes.contains(kmer.prefix())){
+				if(!suffixes.contains(kmerToUse(kmer.prefix()))){
 					seeds.add(new seedData(kmer));
 				}
 			}
-			System.err.print("\t"+kmers.size()+" "+seeds.size()+"      "+"\r");
+			System.err.print("    "+kmers.size()+" "+seeds.size()+"      "+"\r");
 			found=seeds.size()>0;
 			//extend seeds
 			HashSet<kmerData> usedKmers=new HashSet<kmerData>();
@@ -237,12 +253,12 @@ public class kmerUtils {
 			//clean
 			kmers.removeAll(usedKmers);
 			for (kmerData kmerData : usedKmers) {
-				suffixes.remove(kmerData.suffix());
+				suffixes.remove(kmerToUse(kmerData.suffix()));
 			}
 		}
 		System.err.println("Repetitive structures...");
 		while(kmers.size()>0){
-			System.err.print("\t"+kmers.size()+"                \r");
+			System.err.print("    "+kmers.size()+"                \r");
 			//extract cyclic seeds
 			for(seedData finalSeed : generateSeeds_extend(new seedData(kmers.get(0)), kmers)){
 				kmers.removeAll(finalSeed.getKmers());
@@ -305,7 +321,7 @@ public class kmerUtils {
 		ArrayList<seedData> seeds= new ArrayList<seedData>();
 		boolean fin=true;
 		for(int i=0;i<kmers.size();i++){
-			if(newSeed.addLast(kmers.get(i))){
+			if(newSeed.addRight(kmers.get(i))){
 				seeds.addAll(generateSeeds_extend(newSeed,kmers));
 				newSeed= new seedData(seed);
 				fin=false;
@@ -408,27 +424,27 @@ class seedData{
 		return seq;
 	}
 	
-	public boolean addLast(kmerData ext){
-		if(extendEnd(ext)&&!contains(ext)){
+	public boolean addRight(kmerData ext){
+		if(extendRight(ext)&&!contains(ext)){
 			kmers.add(ext);
 			return true;
 		}
 		return false;
 	}
 	
-	public boolean addFirst(kmerData ext){
-		if(extendStart(ext)&&!contains(ext)){
+	public boolean addLeft(kmerData ext){
+		if(extendLeft(ext)&&!contains(ext)){
 			kmers.add(0, ext);
 			return true;
 		}
 		return false;
 	}
 	
-	public boolean extendEnd(kmerData ext){
+	public boolean extendRight(kmerData ext){
 		return kmers.get(kmers.size()-1).extendRight(ext);
 	}
 	
-	public boolean extendStart(kmerData ext){
+	public boolean extendLeft(kmerData ext){
 		return kmers.get(0).extendLeft(ext);
 	}
 	
@@ -445,9 +461,16 @@ class seedData{
 	}
 	
 	public String toString(){
-		String out=consensus();
-		for (kmerData kmer : kmers) {
-			out+="\n"+kmer.toString();
+		String out=consensus()+"\n"+kmers.get(0);
+		String lastSuffix=kmers.get(0).suffix();
+		kmerData kmer;
+		for(int i=1;i<kmers.size();i++){
+			kmer=kmers.get(i);
+			if(kmer.getKmer().startsWith(lastSuffix)){
+				out+="\n"+kmer.toString();
+			}else{
+				out+="\n"+kmer.toStringRev();
+			}
 		}
 		return out;
 	}
@@ -461,7 +484,7 @@ class kmerData implements Comparable<kmerData>,Serializable{
 	private int pos;
 	private int permutations;
 	private String rep;
-	private String kmerSeqRev;
+	private String kmerSeqComp;
 	private String[] data;
 	
 	public kmerData(int pos, String s) throws Exception{
@@ -472,7 +495,7 @@ class kmerData implements Comparable<kmerData>,Serializable{
 		super();
 		this.pos = pos;
 		this.data = data;
-		kmerSeqRev=kmerUtils.reverseComplementSeq(data[pos]);
+		kmerSeqComp=kmerUtils.complement(data[pos]);
 		rep=data[pos];
 		permutations=0;
 		String tmp=rep;
@@ -490,21 +513,21 @@ class kmerData implements Comparable<kmerData>,Serializable{
 		}
 	}
 	
-	public String suffixRev(){
-		return suffixRev(1);
-	}
-	
-	public String suffixRev(int n){
-		return getKmerRev().substring(n);
-	}
-	
-	public String prefixRev(int n){
-		return getKmerRev().substring(0, getKmer().length()-n);
-	}
-	
-	public String prefixRev(){
-		return prefix(1);
-	}
+//	public String suffixRev(){
+//		return suffixRev(1);
+//	}
+//	
+//	public String suffixRev(int n){
+//		return getKmerRev().substring(n);
+//	}
+//	
+//	public String prefixRev(int n){
+//		return getKmerRev().substring(0, getKmer().length()-n);
+//	}
+//	
+//	public String prefixRev(){
+//		return prefix(1);
+//	}
 	
 	public String suffix(int n){
 		return getKmer().substring(n);
@@ -523,7 +546,7 @@ class kmerData implements Comparable<kmerData>,Serializable{
 	}
 	
 	private boolean extendLeft(String prefix){
-		return getKmer().startsWith(prefix);
+		return getKmer().startsWith(prefix)||getKmerComp().startsWith(prefix);
 	}
 	
 	public boolean extendLeft(kmerData prefix,int n){
@@ -536,7 +559,7 @@ class kmerData implements Comparable<kmerData>,Serializable{
 	}
 	
 	private boolean extendRight(String suffix){
-		return getKmer().endsWith(suffix);
+		return getKmer().endsWith(suffix)||getKmerComp().endsWith(suffix);
 	}
 	
 	public boolean extendRight(kmerData suffix, int n){
@@ -552,8 +575,8 @@ class kmerData implements Comparable<kmerData>,Serializable{
 		return data[pos];
 	}
 	
-	public String getKmerRev(){
-		return kmerSeqRev;
+	private String getKmerComp(){
+		return kmerSeqComp;
 	}
 
 	public int compareTo(kmerData o) {
@@ -564,6 +587,27 @@ class kmerData implements Comparable<kmerData>,Serializable{
 	
 	public String toString(){
 		return this.toString("\t");
+	}
+	
+	public String toStringRev(){
+		return toStringRev("\t");
+	}
+	
+	public String toStringRev(String sep){
+		String s="";
+		if(pos==0){
+			s=getKmerComp();
+		}else{
+			s=data[0];
+		}
+		for(int i=1;i<data.length;i++){
+			if(i==pos){
+				s=sep+getKmerComp();
+			}else{
+				s=sep+data[i];
+			}
+		}
+		return s;
 	}
 	
 	public String toString(String sep){
