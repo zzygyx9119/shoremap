@@ -11,8 +11,8 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 
+import tools.fastq.FastqSeq;
 import tools.fastq.fastqParser;
-import tools.fastq.fastqUtils;
 import tools.shoreMap.Mutation;
 import tools.shoreMap.ShoreMapLine;
 
@@ -132,7 +132,7 @@ public class kmerUtils {
 	}
 	
 	public static void kmerize(String fastqFile, int n)throws Exception{
-		fastqParser fqp=new fastqParser(new BufferedReader(new FileReader(fastqFile)),fastqUtils.getPrefix(fastqFile));
+		fastqParser fqp=new fastqParser(new BufferedReader(new FileReader(fastqFile)),getPrefix(fastqFile));
 		String seq;
 		for(;fqp.hasNext();){
 			seq=fqp.next().getSeq();
@@ -146,7 +146,7 @@ public class kmerUtils {
 		if(m>=n){
 			throw new Exception("m ("+m+") must be smaller than n ("+n+")");
 		}
-		fastqParser fqp=new fastqParser(new BufferedReader(new FileReader(fastqFile)),fastqUtils.getPrefix(fastqFile));
+		fastqParser fqp=new fastqParser(new BufferedReader(new FileReader(fastqFile)),getPrefix(fastqFile));
 		for(;fqp.hasNext();){
 			String seq= fqp.next().getSeq();
 			seq=seq.substring(seq.length()-n+1);
@@ -388,6 +388,25 @@ public class kmerUtils {
 			System.out.println(kmerData);
 		}
 	}
+	public static String getPrefix(String fastqFile)throws Exception{
+		fastqParser fqp;
+		FastqSeq fqs;
+		String prefix="";
+		boolean done=true;
+		for (int i=6;i>-1&&done;i--){
+			fqp= new fastqParser(new BufferedReader(new FileReader(fastqFile)),"");
+			fqs=fqp.next();
+			prefix=fqs.getQname().substring(0,i);
+			done=true;
+			for(int j=0;j<10&&fqp.hasNext();j++){
+				fqs=fqp.next();
+				if(!prefix.equals(fqs.getQname().subSequence(0, i))){
+					done=false;
+				}
+			}
+		}
+		return prefix;
+	}
 }
 
 class seedData{
@@ -471,6 +490,7 @@ class seedData{
 			}else{
 				out+="\n"+kmer.toStringRev();
 			}
+			lastSuffix=kmer.suffix();
 		}
 		return out;
 	}
