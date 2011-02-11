@@ -205,13 +205,26 @@ public class kmerUtils {
 	
 	private static void generateSeeds(String kmerFile,int pos,int minSeedSize,String outPrefix)throws Exception{
 		BufferedReader in= new BufferedReader(new FileReader(kmerFile));
-		ArrayList<kmerData> kmers= new ArrayList<kmerData>();
+		HashMap<String,HashSet<kmerData>> kmers= new HashMap<String, HashSet<kmerData>>();
 		HashSet<String> suffixes= new HashSet<String>(1000000);
+//		HashSet<String> prefixes= new HashSet<String>(1000000);
+		
+		HashSet<kmerData> uniqueKmers= new HashSet<kmerData>();
+		
 		kmerData kmer;
 		for(String s=in.readLine();s!=null;s=in.readLine()){
 			kmer=new kmerData(pos, s);
-			kmers.add(kmer);
-			suffixes.add(kmerToUse(kmer.suffix()));
+			if(!kmers.containsKey(kmer.prefix())){
+				kmers.put(kmer.prefix(), new HashSet<kmerData>());
+			}
+			if(!kmers.containsKey(kmer.prefixRevComp())){
+				kmers.put(kmer.prefixRevComp(), new HashSet<kmerData>());
+			}
+			kmers.get(kmer.prefix()).add(kmer);
+			kmers.get(kmer.prefixRevComp()).add(kmer);
+			suffixes.add(kmer.suffix());
+			suffixes.add(kmer.suffixRevComp());
+			uniqueKmers.add(kmer);
 		}
 //		Collections.sort(kmers);
 		//Find seeds
@@ -222,24 +235,42 @@ public class kmerUtils {
 //		HashSet<String> usedKmers= new HashSet<String>(1000000);
 		BufferedWriter out= new BufferedWriter(new FileWriter(outPrefix+".fa"));
 		BufferedWriter outLong= new BufferedWriter(new FileWriter(outPrefix+"_long.txt"));
-		
+		HashSet<kmerData> usedKmers;
 		boolean found=true;
 		System.err.println("Unique seeds...");
+//		HashSet<String> printedSeeds= new HashSet<String>();
+//		while(kmers.size()>0){
+//			System.err.print("    "+kmers.size()+"\r");
+//
+//			HashSet<kmerData> usedKmers=new HashSet<kmerData>();
+//			
+//			for (seedData finalSeed : generateSeeds_extend(new seedData(kmers.get(0)), kmers)) {
+//				usedKmers.addAll(finalSeed.getKmers());
+//				if(finalSeed.size()>=minSeedSize&&printedSeeds.add(finalSeed.consensus())){
+//					seedCount++;
+//					out.write(">"+seedCount+" "+finalSeed.size()+"\n"+finalSeed.consensus()+"\n");
+//					outLong.write(">"+seedCount+" "+finalSeed.size()+"\n"+finalSeed.toString()+"\n");
+//				}
+//			}
+//			kmers.removeAll(usedKmers);
+//		}
 		while(found){
-			System.err.print("    "+kmers.size()+" seeding"+"\r");
-			found=false;
+			found=false;			
+			System.err.print("    "+kmers.size()+"\r");
 			//find unique seeds
 			seeds=new ArrayList<seedData>();
-			for(int i=0;i<kmers.size();i++){
-				kmer=kmers.get(i);
-				if(!suffixes.contains(kmerToUse(kmer.prefix()))){
-					seeds.add(new seedData(kmer));
+			for (kmerData kmerData : uniqueKmers) {
+				if(!suffixes.contains(kmerData.prefix())){
+					seeds.add(new seedData(kmerData));
 				}
+//				if(!suffixes.contains(kmerData.prefixRevComp())){
+//					seeds.add(new seedData(kmerData.revComp()));
+//				}
 			}
 			System.err.print("    "+kmers.size()+" "+seeds.size()+"      "+"\r");
 			found=seeds.size()>0;
 			//extend seeds
-			HashSet<kmerData> usedKmers=new HashSet<kmerData>();
+			usedKmers=new HashSet<kmerData>();
 			for (seedData initialSeed : seeds) {
 				for (seedData finalSeed : generateSeeds_extend(initialSeed, kmers)) {
 					usedKmers.addAll(finalSeed.getKmers());
@@ -251,22 +282,45 @@ public class kmerUtils {
 				}
 			}
 			//clean
-			kmers.removeAll(usedKmers);
+			uniqueKmers.removeAll(usedKmers);
+			
 			for (kmerData kmerData : usedKmers) {
-				suffixes.remove(kmerToUse(kmerData.suffix()));
+				kmers.remove(kmerData.prefix());
+				kmers.remove(kmerData.prefixRevComp());
+			}
+			//Rebuild the suffix list
+			suffixes= new HashSet<String>(1000000);
+			for (kmerData kmerData : uniqueKmers) {
+				suffixes.add(kmerData.suffix());
+				suffixes.add(kmerData.suffixRevComp());
 			}
 		}
 		System.err.println("Repetitive structures...");
 		while(kmers.size()>0){
-			System.err.print("    "+kmers.size()+"                \r");
+//			System.err.print("    "+kmers.size()+"                \r");
 			//extract cyclic seeds
-			for(seedData finalSeed : generateSeeds_extend(new seedData(kmers.get(0)), kmers)){
-				kmers.removeAll(finalSeed.getKmers());
-				if(finalSeed.size()>=minSeedSize){
-					seedCount++;
-					out.write(">"+seedCount+" "+finalSeed.size()+" cyclic\n"+finalSeed.consensus()+"\n");
-					outLong.write(">"+seedCount+" "+finalSeed.size()+" cyclic\n"+finalSeed.toString()+"\n");
+			HashSet<kmerData> onePrefix= new HashSet<kmerData>();
+			for (HashSet<kmerData> tmp : kmers.values()) {
+				onePrefix=new HashSet<kmerData>(tmp);
+				break;
+			}
+			usedKmers= new HashSet<kmerData>();
+			for (kmerData kmerData : onePrefix) {
+				for(seedData finalSeed : generateSeeds_extend(new seedData(kmerData), kmers)){
+					usedKmers.addAll(finalSeed.getKmers());
+					if(finalSeed.size()>=minSeedSize){
+						seedCount++;
+						out.write(">"+seedCount+" "+finalSeed.size()+" cyclic\n"+finalSeed.consensus()+"\n");
+						outLong.write(">"+seedCount+" "+finalSeed.size()+" cyclic\n"+finalSeed.toString()+"\n");
+					}
 				}
+			}
+			//clean
+			uniqueKmers.removeAll(usedKmers);
+			
+			for (kmerData kmerData : usedKmers) {
+				kmers.remove(kmerData.prefix());
+				kmers.remove(kmerData.prefixRevComp());
 			}
 		}
 //		
@@ -309,24 +363,47 @@ public class kmerUtils {
 //				out.write(">"+seedCount+" "+finalSeed.size()+"\n"+finalSeed.consensus()+"\n");
 //				outLong.write(">"+seedCount+" "+finalSeed.size()+"\n"+finalSeed.toString()+"\n");
 //			}
-//		}
+		
 		out.close();
 		outLong.close();
 //		return seeds;
 		System.err.println("Done!");
 	}
 	
-	private static ArrayList<seedData> generateSeeds_extend(seedData seed, ArrayList<kmerData> kmers){
+	private static ArrayList<seedData> generateSeeds_extend(seedData seed, HashMap<String,HashSet<kmerData>> kmers){
+//		System.err.print("\t\t");
+//		for(int i=0;i<seed.size();i++){
+//			System.err.print(" ");
+//		}
+//		System.err.print("1");
+//		for(int i=seed.size()+2;i<seed.getKmers().get(0).getKmer().length();i++){
+//			System.err.print(" ");
+//		}
+//		System.err.print("\r");
 		seedData newSeed= new seedData(seed);
 		ArrayList<seedData> seeds= new ArrayList<seedData>();
 		boolean fin=true;
-		for(int i=0;i<kmers.size();i++){
-			if(newSeed.addRight(kmers.get(i))){
-				seeds.addAll(generateSeeds_extend(newSeed,kmers));
-				newSeed= new seedData(seed);
-				fin=false;
+		if(kmers.containsKey(newSeed.suffix())){
+			for (kmerData kmer : kmers.get(newSeed.suffix())) {
+				if(newSeed.addRight(kmer)){
+					seeds.addAll(generateSeeds_extend(newSeed,kmers));
+					newSeed= new seedData(seed);
+					fin=false;
+				}
 			}
-		}
+		}	
+//		for(int i=0;i<kmers.size();i++){
+//			if(newSeed.addRight(kmers.get(i))){
+//				seeds.addAll(generateSeeds_extend(newSeed,kmers));
+//				newSeed= new seedData(seed);
+//				fin=false;
+//			}
+//			if(newSeed.addLeft(kmers.get(i))){
+//				seeds.addAll(generateSeeds_extend(newSeed,kmers));
+//				newSeed= new seedData(seed);
+//				fin=false;
+//			}
+//		}
 		if(fin){
 			seeds.add(seed);
 		}
@@ -412,21 +489,36 @@ public class kmerUtils {
 class seedData{
 	
 	private ArrayList<kmerData> kmers;
+	private ArrayList<Integer> strand;
+	private String consensus;
 	
 	private seedData(){
 		kmers= new ArrayList<kmerData>();
+		strand= new ArrayList<Integer>();
+		consensus="";
 	}
 	
 	public seedData(kmerData first){
 		this();
 		kmers.add(first);
+		strand.add(0);
+		consensus=first.getKmer();
 	}
 	
 	public seedData(seedData old){
 		this();
-		for (kmerData kd : old.kmers) {
-			this.kmers.add(kd);
-		}
+		this.kmers.addAll(old.kmers);
+		this.strand.addAll(old.strand);
+		this.consensus=old.consensus;
+	}
+	
+	public String suffix(int n){
+//		System.err.println(n+";"+consensus.length());
+		return consensus.substring(consensus.length()-n,consensus.length());
+	}
+	
+	public String suffix(){
+		return suffix(kmers.get(0).getKmer().length()-1);
 	}
 	
 	public ArrayList<kmerData> getKmers(){
@@ -435,37 +527,79 @@ class seedData{
 	
 	public String consensus(){
 		//presumes that the kmers are of the same length
-		String seq=kmers.get(0).getKmer();
-		int lastPos=seq.length()-1;
-		for(int i=1;i<kmers.size();i++){
-			seq+=""+kmers.get(i).getKmer().charAt(lastPos);
-		}
-		return seq;
+//		String seq=kmers.get(0).getKmer();
+//		int lastPos=seq.length()-1;
+//		for(int i=1;i<kmers.size();i++){
+//			seq+=""+kmers.get(i).getKmer().charAt(lastPos);
+//		}
+//		return seq;
+		return consensus;
 	}
 	
-	public boolean addRight(kmerData ext){
-		if(extendRight(ext)&&!contains(ext)){
-			kmers.add(ext);
+	public boolean addRight(kmerData kd){
+		if(this.contains(kd)){
+			return false;
+		}
+		//same strand
+		if(consensus.endsWith(kd.prefix())){
+			kmers.add(kd);
+			strand.add(0);
+			consensus+=kd.tail();
+			return true;
+		}
+		//opposite strand
+		if(consensus.endsWith(kd.prefixRevComp())){
+			kmers.add(kd);
+			strand.add(1);
+			consensus+=kmerUtils.complement(kd.head());
 			return true;
 		}
 		return false;
 	}
 	
-	public boolean addLeft(kmerData ext){
-		if(extendLeft(ext)&&!contains(ext)){
-			kmers.add(0, ext);
+	public boolean addLeft(kmerData kd){
+		if(this.contains(kd)){
+			return false;
+		}
+		//same strand
+		if(consensus.startsWith(kd.suffix())){
+			kmers.add(0, kd);
+			strand.add(0,0);
+			consensus=kd.head()+consensus;
 			return true;
+		}
+		//opposite strand
+		if(consensus.startsWith(kd.suffixRevComp())){
+			kmers.add(0, kd);
+			strand.add(0,1);
+			consensus=kmerUtils.complement(kd.tail())+consensus;
 		}
 		return false;
 	}
 	
-	public boolean extendRight(kmerData ext){
-		return kmers.get(kmers.size()-1).extendRight(ext);
-	}
-	
-	public boolean extendLeft(kmerData ext){
-		return kmers.get(0).extendLeft(ext);
-	}
+//	public boolean addRight(kmerData ext){
+//		if(extendRight(ext)&&!contains(ext)){
+//			kmers.add(ext);
+//			return true;
+//		}
+//		return false;
+//	}
+//	
+//	public boolean addLeft(kmerData ext){
+//		if(extendLeft(ext)&&!contains(ext)){
+//			kmers.add(0, ext);
+//			return true;
+//		}
+//		return false;
+//	}
+//	
+//	public boolean extendRight(kmerData ext){
+//		return kmers.get(kmers.size()-1).extendRight(ext);
+//	}
+//	
+//	public boolean extendLeft(kmerData ext){
+//		return kmers.get(0).extendLeft(ext);
+//	}
 	
 	public boolean contains(kmerData kd){
 		return kmers.contains(kd);
@@ -480,18 +614,26 @@ class seedData{
 	}
 	
 	public String toString(){
-		String out=consensus()+"\n"+kmers.get(0);
-		String lastSuffix=kmers.get(0).suffix();
-		kmerData kmer;
-		for(int i=1;i<kmers.size();i++){
-			kmer=kmers.get(i);
-			if(kmer.getKmer().startsWith(lastSuffix)){
-				out+="\n"+kmer.toString();
+		String out=consensus();
+		for (int i=0;i<kmers.size();i++){
+			if(strand.get(i)==0){
+				out+="\n"+kmers.get(i).toString();
 			}else{
-				out+="\n"+kmer.toStringRev();
+				out+="\n"+kmers.get(i).toStringRevComp();
 			}
-			lastSuffix=kmer.suffix();
 		}
+		
+//		String lastSuffix=kmers.get(0).suffix();
+//		kmerData kmer;
+//		for(int i=1;i<kmers.size();i++){
+//			kmer=kmers.get(i);
+//			if(kmer.getKmer().startsWith(lastSuffix)){
+//				out+="\n"+kmer.toString();
+//			}else{
+//				out+="\n"+kmer.toStringRevComp();
+//			}
+//			lastSuffix=kmer.suffix();
+//		}
 		return out;
 	}
 }
@@ -504,7 +646,7 @@ class kmerData implements Comparable<kmerData>,Serializable{
 	private int pos;
 	private int permutations;
 	private String rep;
-	private String kmerSeqComp;
+	private String kmerSeqRevComp;
 	private String[] data;
 	
 	public kmerData(int pos, String s) throws Exception{
@@ -515,7 +657,7 @@ class kmerData implements Comparable<kmerData>,Serializable{
 		super();
 		this.pos = pos;
 		this.data = data;
-		kmerSeqComp=kmerUtils.complement(data[pos]);
+		kmerSeqRevComp=kmerUtils.reverseComplementSeq(data[pos]);
 		rep=data[pos];
 		permutations=0;
 		String tmp=rep;
@@ -533,21 +675,33 @@ class kmerData implements Comparable<kmerData>,Serializable{
 		}
 	}
 	
-//	public String suffixRev(){
-//		return suffixRev(1);
-//	}
-//	
-//	public String suffixRev(int n){
-//		return getKmerRev().substring(n);
-//	}
-//	
-//	public String prefixRev(int n){
-//		return getKmerRev().substring(0, getKmer().length()-n);
-//	}
-//	
-//	public String prefixRev(){
-//		return prefix(1);
-//	}
+	public kmerData revComp()throws Exception{
+		return new kmerData(pos, this.toStringRevComp());
+	}
+	
+	public String suffixRevComp(){
+		return suffixRevComp(1);
+	}
+	
+	public String suffixRevComp(int n){
+		return getKmerRevComp().substring(n);
+	}
+	
+	public String prefixRevComp(int n){
+		return getKmerRevComp().substring(0, getKmer().length()-n);
+	}
+	
+	public String prefixRevComp(){
+		return prefixRevComp(1);
+	}
+	
+	public String tail(){
+		return ""+getKmer().charAt(getKmer().length()-1);
+	}
+	
+	public String head(){
+		return ""+getKmer().charAt(0);
+	}
 	
 	public String suffix(int n){
 		return getKmer().substring(n);
@@ -566,7 +720,7 @@ class kmerData implements Comparable<kmerData>,Serializable{
 	}
 	
 	private boolean extendLeft(String prefix){
-		return getKmer().startsWith(prefix)||getKmerComp().startsWith(prefix);
+		return getKmer().startsWith(prefix)||getKmerRevComp().startsWith(prefix);
 	}
 	
 	public boolean extendLeft(kmerData prefix,int n){
@@ -579,7 +733,7 @@ class kmerData implements Comparable<kmerData>,Serializable{
 	}
 	
 	private boolean extendRight(String suffix){
-		return getKmer().endsWith(suffix)||getKmerComp().endsWith(suffix);
+		return getKmer().endsWith(suffix)||getKmerRevComp().endsWith(suffix);
 	}
 	
 	public boolean extendRight(kmerData suffix, int n){
@@ -595,8 +749,8 @@ class kmerData implements Comparable<kmerData>,Serializable{
 		return data[pos];
 	}
 	
-	private String getKmerComp(){
-		return kmerSeqComp;
+	private String getKmerRevComp(){
+		return kmerSeqRevComp;
 	}
 
 	public int compareTo(kmerData o) {
@@ -609,22 +763,22 @@ class kmerData implements Comparable<kmerData>,Serializable{
 		return this.toString("\t");
 	}
 	
-	public String toStringRev(){
-		return toStringRev("\t");
+	public String toStringRevComp(){
+		return toStringRevComp("\t");
 	}
 	
-	public String toStringRev(String sep){
+	public String toStringRevComp(String sep){
 		String s="";
 		if(pos==0){
-			s=getKmerComp();
+			s=getKmerRevComp();
 		}else{
 			s=data[0];
 		}
 		for(int i=1;i<data.length;i++){
 			if(i==pos){
-				s=sep+getKmerComp();
+				s+=sep+getKmerRevComp();
 			}else{
-				s=sep+data[i];
+				s+=sep+data[i];
 			}
 		}
 		return s;

@@ -1,10 +1,7 @@
 package tools.fastq;
 
 import java.io.Serializable;
-import java.util.ArrayList;
 
-import tools.fasta.FastaSeq;
-import tools.rocheQual.RocheQualSeq;
 
 public class FastqSeq implements Serializable{
 
@@ -26,9 +23,9 @@ public class FastqSeq implements Serializable{
 		this(fqs.getHeader(),fqs.getSeq(),fqs.getQuality());
 	}
 	
-	public FastqSeq(FastaSeq fs){
-		this(fs.getHeader(),fs.getSeq(),fs.getGoodSangerQualSeq());
-	}
+//	public FastqSeq(FastaSeq fs){
+//		this(fs.getHeader(),fs.getSeq(),fs.getGoodSangerQualSeq());
+//	}
 
 	public String getHeader() {
 		return header;
@@ -65,41 +62,41 @@ public class FastqSeq implements Serializable{
 		this.quality = quality;
 	}
 	
-	public void correct(ArrayList<FastqCorrection> corrections)throws Exception{
-		String s="",q="";
-		int lastpos= 0;
-		for (FastqCorrection correction : corrections) {
-			if(this.getSeq().charAt(correction.getPos())!=correction.getFrom()){
-				throw new Exception("Trying to apply multiple changes and cannot correct \n"+this.toString()+"\nwith correction:\n"+correction.toString());
-			}
-			s+=getSeq().substring(lastpos, correction.getPos())+correction.getTo();
-			q+=getQuality().substring(lastpos, correction.getPos())+((char)correction.getQual());
-			lastpos=correction.getPos()+1;
-		}
-		this.setSeq(s+getSeq().substring(lastpos));
-		this.setQuality(q+getQuality().substring(lastpos));
-		
-	}
-	
-	public void correct(FastqCorrection correction)throws Exception{
-		if(this.getSeq().charAt(correction.getPos())!=correction.getFrom()){
-			throw new Exception("cannot correct \n"+this.toString()+"\nwith correction:\n"+correction.toString());
-		}
-		this.setSeq(this.getSeq(0, correction.getPos())+correction.getTo()+this.getSeq().substring(correction.getPos()+1));
-		this.setQuality(this.getQuality().substring(0, correction.getPos())+((char)correction.getQual())+this.getQuality().substring(correction.getPos()+1));
-	}
+//	public void correct(ArrayList<FastqCorrection> corrections)throws Exception{
+//		String s="",q="";
+//		int lastpos= 0;
+//		for (FastqCorrection correction : corrections) {
+//			if(this.getSeq().charAt(correction.getPos())!=correction.getFrom()){
+//				throw new Exception("Trying to apply multiple changes and cannot correct \n"+this.toString()+"\nwith correction:\n"+correction.toString());
+//			}
+//			s+=getSeq().substring(lastpos, correction.getPos())+correction.getTo();
+//			q+=getQuality().substring(lastpos, correction.getPos())+((char)correction.getQual());
+//			lastpos=correction.getPos()+1;
+//		}
+//		this.setSeq(s+getSeq().substring(lastpos));
+//		this.setQuality(q+getQuality().substring(lastpos));
+//		
+//	}
+//	
+//	public void correct(FastqCorrection correction)throws Exception{
+//		if(this.getSeq().charAt(correction.getPos())!=correction.getFrom()){
+//			throw new Exception("cannot correct \n"+this.toString()+"\nwith correction:\n"+correction.toString());
+//		}
+//		this.setSeq(this.getSeq(0, correction.getPos())+correction.getTo()+this.getSeq().substring(correction.getPos()+1));
+//		this.setQuality(this.getQuality().substring(0, correction.getPos())+((char)correction.getQual())+this.getQuality().substring(correction.getPos()+1));
+//	}
 
 	public String toString(){
 		return header+"\n"+seq+"\n+"+header.substring(1)+"\n"+quality;
 	}
 	
-	public FastaSeq toFastaSeq(){
-		return new FastaSeq(">"+this.getHeader().substring(1),this.getSeq());
-	}
-	
-	public RocheQualSeq toPhredQualSeq(){
-		return this.toQualSeq(64);
-	}
+//	public FastaSeq toFastaSeq(){
+//		return new FastaSeq(">"+this.getHeader().substring(1),this.getSeq());
+//	}
+//	
+//	public RocheQualSeq toPhredQualSeq(){
+//		return this.toQualSeq(64);
+//	}
 	
 //	private String changeQualBase(int origBase, int newBase){
 //		String s="";
@@ -139,16 +136,16 @@ public class FastqSeq implements Serializable{
 		setQuality(toSangerQual(64));
 	}
 	
-	private RocheQualSeq toQualSeq(int base){
-		String seq="";
-		if(this.length()>0){
-			seq+=quality.charAt(0)-base;
-			for(int i=1;i<this.length();i++){
-				seq+=" "+(quality.charAt(i)-base);
-			}
-		}
-		return new RocheQualSeq(">"+header.substring(1), seq);		
-	}
+//	private RocheQualSeq toQualSeq(int base){
+//		String seq="";
+//		if(this.length()>0){
+//			seq+=quality.charAt(0)-base;
+//			for(int i=1;i<this.length();i++){
+//				seq+=" "+(quality.charAt(i)-base);
+//			}
+//		}
+//		return new RocheQualSeq(">"+header.substring(1), seq);		
+//	}
 	
 	private String reverseQual(){
 		String revQual="";
