@@ -25,7 +25,6 @@ public class Mutation implements Comparable<Mutation>{
 		return newNuc;
 	}
 
-	@Override
 	public int compareTo(Mutation o) {
 		if(this.chr.equals(o.chr)){
 			return this.chr.compareTo(o.chr);

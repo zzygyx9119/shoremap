@@ -86,7 +86,7 @@ public class fastqParser {
 			}
 			for(s= reader.readLine();s!=null;s=reader.readLine())
 				if(s.length()>0){
-					if(s.startsWith("@"))
+					if(s.startsWith("@")&&nextQual.length()>=nextSeq.length())
 						if(s.startsWith("@"+prefix)){
 							break;
 						}else{
