@@ -13,6 +13,7 @@ import java.util.HashSet;
 
 import tools.fastq.FastqSeq;
 import tools.fastq.fastqParser;
+import tools.kmer.KmerSet_binary;
 import tools.shoreMap.Mutation;
 import tools.shoreMap.ShoreMapLine;
 
@@ -31,6 +32,8 @@ public class kmerUtils {
 		methodsHelp.put("mapListMutationKmers", "mapListMutationKmers - takes a map.list and a list of mutations (Chr\\tposition\\tnewNuc) and prints two files, one with the kmers of size n to remove and one with the ones to add\n\targs = <map.list> <mutation file> <kmer size n> <outPrefix>\n");
 		methodsHelp.put("kmerize", "kmerize - prints all kmers of size n in each sequence\n\targs = <fastqFile> <n>\n");
 		methodsHelp.put("kmerizeEnd", "kmerizeEnd - prints the kmers in the end of a read missing when reducing from n to m\n\targs = <fastqFile> <n> <m>\n");
+		methodsHelp.put("reduce", "reduce - reduces the kmers at pos in a file to length n\n\targs = <fastqFile> <pos> <n>\n");
+		methodsHelp.put("extractGood", "extractGood - Takes a kmerFile with the kmers at pos (column count starts at 0), and extract all fastq seqs that contains at least min of the good kmers\n\targs = <kmerFile> <pos> <fastqFile> <min> <outPrefix>\n");
 		
 		//check which method to run
 		if(args.length>0){
@@ -44,12 +47,14 @@ public class kmerUtils {
 				generateSeeds(args[1],Integer.parseInt(args[2]),Integer.parseInt(args[3]),args[4]);
 			}else if(args[0].equals("mapListMutationKmers")&&args.length==5){
 				mapListMutationKmers(args[1],args[2],Integer.parseInt(args[3]),args[4]);
-			}else if(args[0].equals("kmerize")&&args.length==3){
-				kmerize(args[1],Integer.parseInt(args[2]));
+			}else if(args[0].equals("reduce")&&args.length==4){
+				reduce(args[1],Integer.parseInt(args[2]),Integer.parseInt(args[3]));
 			}else if(args[0].equals("kmerize")&&args.length==3){
 				kmerize(args[1],Integer.parseInt(args[2]));
 			}else if(args[0].equals("kmerizeEnd")&&args.length==4){
 				kmerizeEnd(args[1],Integer.parseInt(args[2]),Integer.parseInt(args[3]));
+			}else if(args[0].equals("extractGood")&&args.length==6){
+				extractGood(readKmers(args[1],Integer.parseInt(args[2])),args[3],Integer.parseInt(args[4]),args[5]);
 			}else if(args[0].equals("method2")&&args.length>1){
 				
 			}else{
@@ -57,6 +62,69 @@ public class kmerUtils {
 			}
 		}else{
 			System.err.println(printHelp());
+		}
+	}
+	
+	public static void extractGood(KmerSet_binary kmers,String fastqFile, int min, String outPrefix)throws Exception{
+		BufferedWriter fastqout= new BufferedWriter(new FileWriter(outPrefix+"_cleaned.fastq"));
+		BufferedWriter countout= new BufferedWriter(new FileWriter(outPrefix+"_count.csv"));
+		fastqParser fqp= new fastqParser(new BufferedReader(new FileReader(fastqFile)), "");
+		FastqSeq fqs;
+		int kmerSize=kmers.getKmerSize(),count;
+		System.err.println("Parsing fastq file...");
+		for(int i=0;fqp.hasNext();++i){
+			if(i%10000==0){
+				System.err.print("    "+i+"           \r");
+			}
+			fqs=fqp.next();
+			count=0;
+			for (String kmer : kmerizeString(fqs.getSeq(),kmerSize)) {
+				if(kmers.exists(kmer)){
+					++count;
+				}
+			}
+			if(count>=min){
+				fastqout.write(fqs.toString()+"\n");
+				countout.write(fqs.getQname()+"\t"+count+"\n");
+			}
+		}
+		
+		fastqout.close();
+		countout.close();
+	}
+	
+	private static ArrayList<String> kmerizeString(String seq, int length){
+		ArrayList<String> seqs = new ArrayList<String>();
+		if(seq.length()>=length){
+			String kmer=seq.substring(0, length);
+			seqs.add(kmerToUse(kmer));
+			for(int i=length;i<seq.length();i++){
+				kmer=kmer.substring(1)+seq.charAt(i);
+				seqs.add(kmerToUse(kmer));
+			}
+		}
+		return seqs;
+	}
+	
+	private static KmerSet_binary readKmers(String kmerCountFile, int pos)throws Exception{
+		BufferedReader in= new BufferedReader(new FileReader(kmerCountFile));
+		String[] l=in.readLine().split("\t");
+		KmerSet_binary kmers= new KmerSet_binary(l[pos]);
+		int line=1;
+		for(String s=in.readLine();s!=null;s=in.readLine(),line++){
+			if(line%10000==0)
+				System.err.print("\t"+line+"   "+kmers.size()+"\r");
+			l=s.split("\t");
+			kmers.addSeq(l[pos]);
+		}
+		
+		return kmers;
+	}
+	
+	public static void reduce(String kmerFile,int pos,int length)throws Exception{
+		BufferedReader in= new BufferedReader(new FileReader(kmerFile));
+		for(String s=in.readLine();s!=null;s=in.readLine()){
+			System.out.println((new kmerData(pos, s)).reduce(length));
 		}
 	}
 	
@@ -118,13 +186,38 @@ public class kmerUtils {
 		}
 	}
 	
-	protected static String kmerToUse(String kmer){
-		String revKmer=reverseComplementSeq(kmer);
-		if(kmer.compareTo(revKmer)<0){
-			return kmer;
-		}else{
-			return revKmer;
+//	protected static String kmerToUse(String kmer){
+//		String revKmer=reverseComplementSeq(kmer);
+//		if(kmer.compareTo(revKmer)<0){
+//			return kmer;
+//		}else{
+//			return revKmer;
+//		}
+//	}
+	
+	public static String kmerToUse(String kmer){
+		String kmerRev= "";
+		int j=kmer.length()-1,result;
+		char c,r;
+		for(int i=0;i<kmer.length();i++,j--){
+			c=kmer.charAt(i);
+			r=complement(kmer.charAt(j));
+			if((result=c-r)!=0){
+				if(result<0){
+					return kmer;
+				}else{
+					kmerRev+=""+r;
+					++i;
+					break;
+				}
+			}else{
+				kmerRev=r+kmerRev;
+			}
 		}
+		for(;j>=0;j--){
+			kmerRev+=complement(kmer.charAt(j))+"";
+		}
+		return kmerRev;
 	}
 	
 	private static void printKmer(String kmer){
@@ -677,6 +770,15 @@ class kmerData implements Comparable<kmerData>,Serializable{
 	
 	public kmerData revComp()throws Exception{
 		return new kmerData(pos, this.toStringRevComp());
+	}
+	
+	public kmerData reduce(int n) throws Exception{
+		String[] newData=new String[data.length];
+		for(int i=0;i<data.length;i++){
+			newData[i]=data[i];
+		}
+		newData[pos]=kmerUtils.kmerToUse(data[pos]);
+		return new kmerData(pos,newData);
 	}
 	
 	public String suffixRevComp(){
