@@ -12,7 +12,7 @@ ls=5000000
 data<-read.table(args[7])
 max=1
 
-
+source(SHOREmap_confint.R)
 
 
 winstep=args[8]
@@ -27,6 +27,15 @@ for (chr in 1:(length(chrsize$V1))) {
 
 	plot(data$V2[data$V1[]==chrname], data$V5[data$V1[]==chrname], ylim=c(0, 1), xlim=c(0, max(chrsize$V2)), type="p", pch=20, axes=F, xlab=paste("Chromosome ", chrname, sep=""), ylab="", main=paste("winstep:", winstep, " winsize:", winsize, sep=""))
 
+	#ciData<- data[data[,1]==chrname,]
+	#chromosome<-ciData[,1]
+	#positions<-ciData[,2]
+	#background_count<-ciData[,3??]
+	#forground_count<-ciData[,4??]
+	#error_count<-ciData[,6??]
+	#ci<-ShoreMap.confint(chromosome,positions,background_count,foreground_count, error_count,foreground_frequency=1,level=0.99,minWindow=10)
+	#plot??
+	
 	for (bgl in seq(0.1, 1, 0.1)) {
 		abline(h=bgl, col="lightgrey")
 	}

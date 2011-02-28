@@ -12,6 +12,7 @@ ls=5000000
 data<-read.table(args[7])
 max=max(max(data$V5), max(data$V6))
 
+source(SHOREmap_confint.R)
 
 winstep=args[8]
 winsize=args[9]
@@ -24,6 +25,15 @@ for (chr in 1:(length(chrsize$V1))) {
 	chrname=chrsize$V1[chr]
 
 	plot(data$V2[data$V1[]==chrname], data$V5[data$V1[]==chrname], ylim=c((-1)*max, max), xlim=c(0, max(chrsize$V2)), col="red", type="h", axes=F, xlab=paste("Chromosome ", chrname, sep=""), ylab="", main=paste("winstep:", winstep, " winsize:", winsize, sep=""))
+
+	#ciData<- data[data[,1]==chrname,]
+	#chromosome<-ciData[,1]
+	#positions<-ciData[,2]
+	#background_count<-ciData[,3??]
+	#forground_count<-ciData[,4??]
+	#error_count<-ciData[,6??]
+	#ci<-ShoreMap.confint(chromosome,positions,background_count,foreground_count, error_count,foreground_frequency=1,level=0.99,minWindow=10)
+	#plot??
 
 	x=data$V2[data$V1[]==chrname]
 	y=data$V6[data$V1[]==chrname]

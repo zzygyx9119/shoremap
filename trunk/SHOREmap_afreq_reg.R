@@ -18,6 +18,7 @@ regend=as.numeric(args[12])
 regfreq_min=as.numeric(args[13])
 regfreq_max=as.numeric(args[14])
 
+source(SHOREmap_confint.R)
 
 print (regfreq_min)
 print (regfreq_max)
@@ -36,6 +37,16 @@ for (chr in 1:(length(chrsize$V1))) {
 
 		plot(data$V2[data$V1[]==chrname], data$V5[data$V1[]==chrname], ylim=c(regfreq_min, regfreq_max), xlim=c(regbegin, regend), type="p", pch=20, axes=F, xlab=paste("Chromosome ", chrname, sep=""), ylab="", main=paste("winstep:", winstep, " winsize:", winsize, sep=""))
 
+		#ciData<- data[data[,1]==chrname&data[,2]>=regbegin&data[,2]<=regend,]
+		#chromosome<-ciData[,1]
+		#positions<-ciData[,2]
+		#background_count<-ciData[,3??]
+		#forground_count<-ciData[,4??]
+		#error_count<-ciData[,6??]
+		#ci<-ShoreMap.confint(chromosome,positions,background_count,foreground_count, error_count,foreground_frequency=1,level=0.99,minWindow=10)
+		#plot??
+		
+		
 		for (bgl in seq(0.1, 1, 0.1)) {
 			abline(h=bgl, col="lightgrey")
 		}
