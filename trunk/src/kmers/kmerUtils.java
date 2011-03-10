@@ -54,7 +54,7 @@ public class kmerUtils {
 			}else if(args[0].equals("kmerizeEnd")&&args.length==4){
 				kmerizeEnd(args[1],Integer.parseInt(args[2]),Integer.parseInt(args[3]));
 			}else if(args[0].equals("extractGood")&&args.length==6){
-				extractGood(readKmers(args[1],Integer.parseInt(args[2])),args[3],Integer.parseInt(args[4]),args[5]);
+				extractGood(readKmers_revComp(args[1],Integer.parseInt(args[2])),args[3],Integer.parseInt(args[4]),args[5]);
 			}else if(args[0].equals("method2")&&args.length>1){
 				
 			}else{
@@ -70,19 +70,20 @@ public class kmerUtils {
 		BufferedWriter countout= new BufferedWriter(new FileWriter(outPrefix+"_count.csv"));
 		fastqParser fqp= new fastqParser(new BufferedReader(new FileReader(fastqFile)), "");
 		FastqSeq fqs;
-		int kmerSize=kmers.getKmerSize(),count;
+//		int kmerSize=kmers.getKmerSize();
+		int count;
 		System.err.println("Parsing fastq file...");
 		for(int i=0;fqp.hasNext();++i){
 			if(i%10000==0){
 				System.err.print("    "+i+"           \r");
 			}
 			fqs=fqp.next();
-			count=0;
-			for (String kmer : kmerizeString(fqs.getSeq(),kmerSize)) {
-				if(kmers.exists(kmer)){
-					++count;
-				}
-			}
+			count=kmers.count(fqs.getSeq());
+//			for (String kmer : kmerizeString(fqs.getSeq(),kmerSize)) {
+//				if(kmers.exists(kmer)){
+//					++count;
+//				}
+//			}
 			if(count>=min){
 				fastqout.write(fqs.toString()+"\n");
 				countout.write(fqs.getQname()+"\t"+count+"\n");
@@ -93,20 +94,20 @@ public class kmerUtils {
 		countout.close();
 	}
 	
-	private static ArrayList<String> kmerizeString(String seq, int length){
-		ArrayList<String> seqs = new ArrayList<String>();
-		if(seq.length()>=length){
-			String kmer=seq.substring(0, length);
-			seqs.add(kmerToUse(kmer));
-			for(int i=length;i<seq.length();i++){
-				kmer=kmer.substring(1)+seq.charAt(i);
-				seqs.add(kmerToUse(kmer));
-			}
-		}
-		return seqs;
-	}
+//	private static ArrayList<String> kmerizeString(String seq, int length){
+//		ArrayList<String> seqs = new ArrayList<String>();
+//		if(seq.length()>=length){
+//			String kmer=seq.substring(0, length);
+//			seqs.add(kmerToUse(kmer));
+//			for(int i=length;i<seq.length();i++){
+//				kmer=kmer.substring(1)+seq.charAt(i);
+//				seqs.add(kmerToUse(kmer));
+//			}
+//		}
+//		return seqs;
+//	}
 	
-	private static KmerSet_binary readKmers(String kmerCountFile, int pos)throws Exception{
+	private static KmerSet_binary readKmers_revComp(String kmerCountFile, int pos)throws Exception{
 		BufferedReader in= new BufferedReader(new FileReader(kmerCountFile));
 		String[] l=in.readLine().split("\t");
 		KmerSet_binary kmers= new KmerSet_binary(l[pos]);
@@ -116,6 +117,7 @@ public class kmerUtils {
 				System.err.print("\t"+line+"   "+kmers.size()+"\r");
 			l=s.split("\t");
 			kmers.addSeq(l[pos]);
+			kmers.addSeq(reverseComplementSeq(l[pos]));
 		}
 		
 		return kmers;
