@@ -12,7 +12,7 @@ ls=5000000
 data<-read.table(args[7])
 max=max(max(data$V5), max(data$V6))
 
-source(SHOREmap_confint.R)
+source(SHOREmap_confInt.R)
 
 winstep=args[8]
 winsize=args[9]

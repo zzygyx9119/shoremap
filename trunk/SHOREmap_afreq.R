@@ -12,7 +12,7 @@ ls=5000000
 data<-read.table(args[7])
 max=1
 
-source(SHOREmap_confint.R)
+#source(SHOREmap_confInt.R)
 
 
 winstep=args[8]
