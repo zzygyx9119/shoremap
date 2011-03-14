@@ -18,7 +18,7 @@ regend=as.numeric(args[12])
 regfreq_min=as.numeric(args[13])
 regfreq_max=as.numeric(args[14])
 
-source(SHOREmap_confint.R)
+#source(SHOREmap_confInt.R)
 
 print (regfreq_min)
 print (regfreq_max)
