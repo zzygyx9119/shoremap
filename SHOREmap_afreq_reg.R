@@ -17,8 +17,10 @@ regbegin=as.numeric(args[11])
 regend=as.numeric(args[12])
 regfreq_min=as.numeric(args[13])
 regfreq_max=as.numeric(args[14])
+#path=args[15]
 
-#source(SHOREmap_confInt.R)
+
+#source(paste(path,"SHOREmap_confInt.R",sep="/"))
 
 print (regfreq_min)
 print (regfreq_max)

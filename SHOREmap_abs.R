@@ -15,9 +15,9 @@ max=max(max(data$V5), max(data$V6))
 
 winstep=args[8]
 winsize=args[9]
-path=args[10]
+#path=args[10]
 
-source(paste(path,"SHOREmap_confint.R",sep="/"))
+#source(paste(path,"SHOREmap_confint.R",sep="/"))
 
 # Plot
 
