@@ -3,7 +3,7 @@
 args <- commandArgs()
 
 chrsize<-read.table(args[5])
-fpdf<-read.table(args[6])
+fpdf<-args[6]
 zoom<-read.table(args[7])
 windowsizes<-read.table(args[8])
 winstep<-as.numeric(args[9])
@@ -32,17 +32,26 @@ source(paste(path,"SHOREmap_confInt.R", sep="/"))
 ##########################################
 # Plotting
 
-for (winsize_i in 1:(length(windowsizes$V1))) {
+for (chr in 1:(length(chrsize$V1))) {
 
-	winsize=windowsizes$V1[winsize_i]
-	data<-read.table(paste(path, "/SHOREmap.winsize", winsize, ".txt", sep=""))
+	chrname=chrsize$V1[chr]
 
-	for (chr in 1:(length(chrsize$V1))) {
+	for (winsize_i in 1:(length(windowsizes$V1))) {
 
-		chrname=chrsize$V1[chr]
+		winsize=windowsizes$V1[winsize_i]
+		data<-read.table(paste(path, "/SHOREmap.winsize", winsize, ".txt", sep=""))
 
-		plot(data$V2[data$V1[]==chrname], data$V5[data$V1[]==chrname], ylim=c(0, 1), xlim=c(0, max(chrsize$V2)), type="p", pch=20, axes=F, xlab=paste("Chromosome ", chrname, sep=""), ylab="", main=paste("winstep:", winstep, " winsize:", winsize, sep=""))
+		# Set up plot data
+		freq = data$V3[data$V1[]==chrname] / ( data$V3[data$V1[]==chrname] + data$V4[data$V1[]==chrname] )
+		temp_winstep = winstep
+		if (winsize == 1) {
+			temp_winstep = 1
+		}
+		# Plot
+		plot(data$V2[data$V1[]==chrname], freq, ylim=c(0, 1), xlim=c(0, max(chrsize$V2)), type="p", pch=20, axes=F, ylab="", main=paste("Winstep:", temp_winstep, " Winsize:", winsize, sep=""))
+		#plot(data$V2[data$V1[]==chrname], freq, ylim=c(0, 1), xlim=c(0, max(chrsize$V2)), type="p", pch=20, axes=F, xlab=paste("Chromosome ", chrname, sep=""), ylab="", main=paste("winstep:", winstep, " winsize:", winsize, sep=""))
 
+		# Calc confidence interval
 		ciData<- data[data[,1]==chrname,]
 		chromosome<-ciData[,1]
 		positions<-ciData[,2]
@@ -62,6 +71,7 @@ for (winsize_i in 1:(length(windowsizes$V1))) {
 
 		#abline(v=16240000)
 
+	}
 }
 
 
