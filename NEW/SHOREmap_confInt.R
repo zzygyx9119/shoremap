@@ -199,7 +199,7 @@ extend <- function(beststart,bestsize=10,level=0.95,freq=1,indexL=0,indexH=Inf,m
    bestsize<-bestsize+i
   }
   #optimization again before reitteration
-  nextTest<- optim(fn=maxConf,par=c(beststart,bestsize),control=list(ndeps=c(1,1),maxit=100),level=level,freq=freq,indexL=max(indexL,beststart-10*minWindow),indexH=min(indexH,beststart+bestsize+10*minWindow),minWindow=minWindow)
+  nextTest<- optim(fn=maxConf,method="Nelder-Mead",par=c(beststart,bestsize),control=list(ndeps=c(1,1),maxit=100),level=level,freq=freq,indexL=max(indexL,beststart-10*minWindow),indexH=min(indexH,beststart+bestsize+10*minWindow),minWindow=minWindow)
  }
  t(as.matrix(c(beststart,bestsize,bestvalue)))
 }
