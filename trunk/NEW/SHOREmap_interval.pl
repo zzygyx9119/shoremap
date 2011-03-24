@@ -159,16 +159,15 @@ for (my $w = 0; $w < @window_sizes; $w++) {
 		}
         }
 
-
 	close OUT;
-
-
-	my $pdffile = "$out_folder/SHOREmap.pdf";
-	my $cmd = "R --slave --vanilla --args $chrsizes $pdffile $out_folder/SHOREmap.zoom_region.txt $out_folder/SHOREmap.win_sizes.txt $window_step $FindBin::Bin < ".$FindBin::Bin."/SHOREmap_plot.R 2> /dev/null";
-        print STDERR $cmd, "\n" if $verbose == 1;
-        #system($cmd);
-
 }
+
+
+my $pdffile = "$out_folder/SHOREmap.pdf";
+my $cmd = "R --slave --vanilla --args $expect $chrsizes $pdffile $out_folder/SHOREmap.zoom_region.txt $out_folder/SHOREmap.window_sizes.txt $window_step $FindBin::Bin $out_folder < ".$FindBin::Bin."/SHOREmap_plot.R"; # 2> /dev/null";
+print STDERR $cmd, "\n" if $verbose == 1;
+system($cmd);
+
 
 
 
@@ -577,8 +576,8 @@ See documentation for file formats.
                 }
         }
 
-	if (defined($CMD{windowsize})) {
-                $window_size_string = $CMD{windowsize};
+	if (defined($CMD{"window-size"})) {
+                $window_size_string = $CMD{"window-size"};
 	}
 	my @a = split ",", $window_size_string;
 	foreach my $e (@a) {
