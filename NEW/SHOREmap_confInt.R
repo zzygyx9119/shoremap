@@ -79,6 +79,9 @@ loglikelihood_mult <- function(P1=0.5,err=0.01,index=0,size=0){
  if(P1<0 || P1>1 || err<0 || err>1) {
   110000
  }else{
+  P1=as.numeric(P1)
+  err=as.numeric(err)
+  #print(paste(P1,err,sep="##"))
   p1<- P1*(1-4*err/3)+err/3
   pe<- 2*err/3
   p2<- 1-p1-pe
