@@ -4,6 +4,8 @@
 #617 the examined window was too small compared to the internal windowsize (minWindow)
 
 #chromosome,positions, background_count,forground_count and error_count are vectors of the same length
+require(bbmle)
+
 ShoreMap.confint <- function(chromosome,positions,background_count,forground_count, error_count,forground_frequency=1,level=0.99,recurse=TRUE){
  internalData<- cbind(chromosome,positions,forground_count,background_count,error_count)
  internalData<- internalData[rowSums(internalData[,3:5])>0,]
@@ -17,18 +19,18 @@ ShoreMap.confint <- function(chromosome,positions,background_count,forground_cou
   bestsize<-minWindow
   while(sum(ps_global<0)>0){
    bestsize<-bestsize+5 #OK to increase windowsize by 5?
-   print(bestsize)
-   ps_global<-sapply(1:(length(dataset_shoremapmle[,1])-bestSize+1),function(x) {cur_freqs<-freqs[x:(x+bestsize-1)]; p<-tryCatch(t.test(cur_freqs,mu=forground_frequency)$p.value,error=function(err) -616);ifelse(is.na(p),-616,p)})
+#   print(bestsize)
+   ps_global<-sapply(1:(length(dataset_shoremapmle[,1])-bestsize+1),function(x) {cur_freqs<-freqs[x:(x+bestsize-1)]; p<-tryCatch(t.test(cur_freqs,mu=forground_frequency)$p.value,error=function(err) -616);ifelse(is.na(p),-616,p)})
   }
  res<- identify_peaks(1,length(internalData[,2]),forground_frequency,level,minWindow,ps_global,bestsize,recurse)
- rm(dataset_shoremapmle)
- rm(storage_shoremapmle)
+# rm(dataset_shoremapmle)
+# rm(storage_shoremapmle)
  apply(res,1,function(x) t(c(start=ifelse(x[3]<0,internalData[x[1],2],0), stop=ifelse(x[3]<0,internalData[x[1]+x[2]-1,2],0),p.value=ifelse(x[3]<0,-1*(x[3]+x[2]),x[3]))))
 }
 
 identify_peaks <- function(indexL,indexH,frequency,level,minWindow,ps_global,bestsize,recurse){
- if(indexH-indexL>minWindow){
-  
+ if(indexH-indexL>max(minWindow,bestsize)){
+#  print(paste(indexL,indexH,bestsize,sep=" ### "))
   cur_indices<-indexL:(indexH-bestsize+1)
   ps<-ps_global[cur_indices]
   if(max(ps)>0.001){
@@ -42,7 +44,7 @@ identify_peaks <- function(indexL,indexH,frequency,level,minWindow,ps_global,bes
       return(t(as.matrix(c(1,1,616))))
       break
      }else{
-      starts<-starts[2:length(starts)]
+      starts<-starts[1:length(starts)!=ceiling(length(starts)/2)]
      }
     }else if(recurse){
      if(res[1,3]<0){
@@ -87,7 +89,8 @@ identify_peaks <- function(indexL,indexH,frequency,level,minWindow,ps_global,bes
 
 loglikelihood_mult <- function(P1=0.5,err=0.01,index=0,size=0){
  #the loglikelihood function. Returns 110000 for unvalid p-values
- if(P1<0 || P1>1 || err<0 || err>1) {
+ if(P1<0 || P1>1 || err<1e-4 || err>1) {
+# if(P1<0 || P1>1 || err<0 || err>1) {
   110000
  }else{
   P1=as.numeric(P1)
