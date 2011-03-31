@@ -89,8 +89,8 @@ identify_peaks <- function(indexL,indexH,frequency,level,minWindow,ps_global,bes
 
 loglikelihood_mult <- function(P1=0.5,err=0.01,index=0,size=0){
  #the loglikelihood function. Returns 110000 for unvalid p-values
- if(P1<0 || P1>1 || err<1e-4 || err>1) {
-# if(P1<0 || P1>1 || err<0 || err>1) {
+# if(P1<0 || P1>1 || err<1e-4 || err>1) {
+ if(P1<0 || P1>1 || err<0 || err>1) {
   110000
  }else{
   P1=as.numeric(P1)
@@ -107,6 +107,10 @@ loglikelihood_mult <- function(P1=0.5,err=0.01,index=0,size=0){
 multll<- function(x,size=10) {
  #a wrapper for the MLE test
  mle2(loglikelihood_mult,method="Nelder-Mead",start=list(P1=0.5,err=0.0001),fixed=list(index=x,size=size))
+}
+
+restrictedModel <- function(P1,x,size) {
+ mle2(loglikelihood_mult,optimizer="optimize",start=list(err=0.0001),fixed=list(P1=P1,index=x,size=size),lower=0, upper=1)
 }
 
 maxConf<-function(x,level=0.95,freq=0,indexL=0,indexH=Inf,minWindow=10){
@@ -134,7 +138,8 @@ maxConf<-function(x,level=0.95,freq=0,indexL=0,indexH=Inf,minWindow=10){
    if(fit@min>100000){
     res<-fit@min
    }else{
-    p<- pchisq(-2*(loglikelihood_mult(fit@coef[1],fit@coef[2],start,size)-loglikelihood_mult(freq,fit@coef[2],start,size)),1)
+    restrictedFit<- restrictedModel(freq,start,size)
+    p<- pchisq(-2*(loglikelihood_mult(fit@coef[1],fit@coef[2],start,size)-loglikelihood_mult(freq,restrictedFit@coef[1],start,size)),1)
     if(p<=level){
      res<- -size-p
     }else{
@@ -147,27 +152,6 @@ maxConf<-function(x,level=0.95,freq=0,indexL=0,indexH=Inf,minWindow=10){
   }
  }
 }
-
-
-maxConfPos<-function(x,level=0.95,freq=0,size=10,neighbors=2,indexL=0,indexH=Inf,minWindow=10){
- #function to optimize in order to find an initial start point
- start<-floor(x[1])
- indexL<- max(1,indexL)
- indexH<- min(length(dataset_shoremapmle[,2]),indexH)
- if(start<indexL+neighbors){
-  110000-indexL-neighbors+start
- }else if(size<minWindow){
-  110000-size+minWindow
- }else if(start+size-1>indexH-neighbors){
-  110000+start+size-1-indexH+neighbors
- }else{
-  res<-sum(sapply((start-2):(start+2),function(y) abs(multll(y,size)@coef[1]-freq)))
-  res
- }
-}
-
-
-
 
 extend <- function(beststart,bestsize=10,level=0.95,freq=1,indexL=0,indexH=Inf,minWindow){
  #given a window it extends this as far as possible to the left and right without exceeding the confidence level
