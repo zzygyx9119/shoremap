@@ -6,26 +6,32 @@
 #chromosome,positions, background_count,forground_count and error_count are vectors of the same length
 require(bbmle)
 
-ShoreMap.confint <- function(chromosome,positions,background_count,forground_count, error_count,forground_frequency=1,level=0.99,recurse=TRUE){
- internalData<- cbind(chromosome,positions,forground_count,background_count,error_count)
+ShoreMap.confint <- function(chromosome,positions,background_count,foreground_count, error_count,foreground_frequency=1,level=0.99,recurse=TRUE){
+ foreground_frequency<-as.numeric(foreground_frequency)
+ print(paste("analysing chr ",chromosome[1],", with ",length(chromosome)," markers for equality to ",foreground_frequency,"(",typeof(foreground_frequency),")",sep=""))
+ internalData<- cbind(chromosome,positions,foreground_count,background_count,error_count)
  internalData<- internalData[rowSums(internalData[,3:5])>0,]
  #perhaps not the nicest solution
  assign("dataset_shoremapmle",internalData,".GlobalEnv")
  assign("storage_shoremapmle",matrix(c(-1,-1,-1),nrow=1),".GlobalEnv")
 # assign("savedCalc_shoremapmle",0,".GlobalEnv")
  minWindow=max(10,floor(length(internalData[,2])/1000))
+ assign("i_shoremapmle",0,".GlobalEnv")
  freqs<-apply(dataset_shoremapmle,1,function(x) x[3]/sum(x[3:5]))
- ps_global<-sapply(1:(length(dataset_shoremapmle[,1])-minWindow+1),function(x) {cur_freqs<-freqs[x:(x+minWindow-1)]; p<-tryCatch(t.test(cur_freqs,mu=forground_frequency)$p.value,error=function(err) -616);ifelse(is.na(p),-616,p)})
-  bestsize<-minWindow
-  while(sum(ps_global<0)>0){
-   bestsize<-bestsize+5 #OK to increase windowsize by 5?
-#   print(bestsize)
-   ps_global<-sapply(1:(length(dataset_shoremapmle[,1])-bestsize+1),function(x) {cur_freqs<-freqs[x:(x+bestsize-1)]; p<-tryCatch(t.test(cur_freqs,mu=forground_frequency)$p.value,error=function(err) -616);ifelse(is.na(p),-616,p)})
-  }
- res<- identify_peaks(1,length(internalData[,2]),forground_frequency,level,minWindow,ps_global,bestsize,recurse)
+ bestsize<- ceiling((max(table(sapply(2:length(freqs),function(x) if(freqs[x]==freqs[x-1]){i_shoremapmle}else{assign("i_shoremapmle",i_shoremapmle+1,".GlobalEnv");i_shoremapmle})))+1)/5)*5
+ bestsize<-max(bestsize,minWindow)
+ print(paste("bestsize:",bestsize))
+ if(bestsize<length(dataset_shoremapmle[,1])){
+  ps_global<-sapply(1:(length(dataset_shoremapmle[,1])-bestsize+1),function(x) {cur_freqs<-freqs[x:(x+bestsize-1)]; p<-tryCatch(t.test(cur_freqs,mu=foreground_frequency)$p.value,error=function(err) { -616});ifelse(is.na(p),-616,p)})
+  print(paste("finding peaks.. best p-value:",max(ps_global)))
+  res<- identify_peaks(1,length(internalData[,2]),foreground_frequency,level,minWindow,ps_global,bestsize,recurse)
 # rm(dataset_shoremapmle)
 # rm(storage_shoremapmle)
- apply(res,1,function(x) t(c(start=ifelse(x[3]<0,internalData[x[1],2],0), stop=ifelse(x[3]<0,internalData[x[1]+x[2]-1,2],0),p.value=ifelse(x[3]<0,-1*(x[3]+x[2]),x[3]))))
+  apply(res,1,function(x) t(c(start=ifelse(x[3]<0,internalData[x[1],2],0), stop=ifelse(x[3]<0,internalData[x[1]+x[2]-1,2],0),p.value=ifelse(x[3]<0,-1*(x[3]+x[2]),x[3]))))
+ }else{
+  #too few markers
+  c(0,0,919)
+ }
 }
 
 identify_peaks <- function(indexL,indexH,frequency,level,minWindow,ps_global,bestsize,recurse){
