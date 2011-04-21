@@ -445,30 +445,24 @@ Mandatory:
 --chrsizes       STRING   Chromosome sizes file
 --folder         STRING   Output folder
 --marker         STRING   Marker file
---marker-format  STRING   Marker file format, 
-                          \"shore\" or \"vcf\"
-                          (default: \"shore\")
+--marker-format  STRING   Marker file format, \"shore\" or 
+                          \"vcf\" (default: \"shore\")
 --consen         STRING   Consensus file 
---consen-format  STRING   Consensus file format, 
-                          \"shore\" or \"vcf\"
-                          (default: \"shore\")
+--consen-format  STRING   Consensus file format, \"shore\" 
+                          or \"vcf\" (default: \"shore\")
 --window-size    STRING   Up to three window sizes
-                          (default:
-                          \"50000,200000,350000\")
---window-step    INT      Distance of slid windows
+                          (default: \"50000,200000,350000\")
+--window-step    INT      Distance of sliding windows
                           (default: 10000)
 
 Filter:
---min-marker     INT      Filter windows with 
-                          low numbers of markers
-                          (default: not set)
---min-coverage   INT      Filter single marker 
-                          with low average 
-                          coverage
-                          (default: not set)
--filter-errors            Filter markers with 
-                          obvious errors
-                          (default: not set)
+--min-marker     INT      Filter windows with low numbers 
+                          of markers (default: not set)
+--min-coverage   INT      Filter single marker with low 
+                          average coverage (default: not 
+                          set)
+-filter-errors            Filter markers with obvious 
+                          errors (default: not set)
 
 Zooming:
 --chromosome     INT      Zoom to chromosome ..
@@ -479,8 +473,7 @@ Zooming:
 
 Optional:
 --referrors      STRING   Reference errors file
--background2              Mutation in second 
-                          parent
+-background2              Mutation in second parent
 -verbose                  Be talkative
 
 See documentation for file formats.
@@ -515,7 +508,7 @@ See documentation for file formats.
 		exit(0);
 	}
 
-        GetOptions(\%CMD, "target=i", "chrsizes=s", "folder=s", "marker=s", "marker-format=s", "consen=s", "consen-format=s", "window-size=s", "window-step=i", "min-marker=i", "min-coverage=i", "filter-errors", "chromosome=i", "begin=i", "end=i", "minfreq=i", "maxfreq=i", "verbose", "background2", "referrors=s");
+        GetOptions(\%CMD, "target=f", "chrsizes=s", "folder=s", "marker=s", "marker-format=s", "consen=s", "consen-format=s", "window-size=s", "window-step=i", "min-marker=i", "min-coverage=i", "filter-errors", "chromosome=i", "begin=i", "end=i", "minfreq=f", "maxfreq=f", "verbose", "background2", "referrors=s");
 
         die("Please specify target allele frequency\n") unless defined($CMD{target});
         die("Please specify chromosome sizes file\n") unless defined($CMD{chrsizes});
@@ -586,7 +579,7 @@ See documentation for file formats.
 	}
 	@window_sizes = sort {$a <=> $b} @a;
 	if ($window_sizes[0] != 1) {
-		unshift @window_sizes, 1;
+		#unshift @window_sizes, 1;
 	}
 
 	if (defined($CMD{windowstep})) {
