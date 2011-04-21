@@ -95,8 +95,8 @@ identify_peaks <- function(indexL,indexH,frequency,level,minWindow,ps_global,bes
 
 loglikelihood_mult <- function(P1=0.5,err=0.01,index=0,size=0){
  #the loglikelihood function. Returns 110000 for unvalid p-values
-# if(P1<0 || P1>1 || err<1e-4 || err>1) {
- if(P1<0 || P1>1 || err<0 || err>1) {
+ if(P1<0 || P1>1 || err<1e-4 || err>1) {
+# if(P1<0 || P1>1 || err<0 || err>1) {
   110000
  }else{
   P1=as.numeric(P1)
