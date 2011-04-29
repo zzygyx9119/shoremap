@@ -108,6 +108,9 @@ for (chr in 1:(length(chrsize$V1))) {
                 		for (ci_i in 1:(length(ci[1,]))) {
 			
 					rect(ci[1, ci_i], y_max+0.02, ci[2, ci_i], y_max+0.06, col="orange", border="orange")
+					#rect(ci[1, ci_i], y_max+0.02, ci[2, ci_i], y_max+0.06, col="orange", border="orange")
+					#rect(ci[1, ci_i], y_max+0.02, ci[2, ci_i], y_max+0.06, col="orange", border="orange")
+					
 					# add size
 					size = ci[2, ci_i] - ci[1, ci_i] + 1
 					text(c(ci[1, ci_i] + size/2), c(y_max+0.035), labels=c(paste(size, sep="")))
@@ -121,7 +124,7 @@ for (chr in 1:(length(chrsize$V1))) {
 			}
 
 			# debug:
-			abline(v=16702262, col="limegreen")
+			#abline(v=16702262, col="limegreen")
 
 			labels=c(1, seq(ls, chrsize$V2[chrsize$V1[]==chrname], by=ls), chrsize$V2[chrsize$V1[]==chrname])
 			axis(1, label=labels, at=labels)

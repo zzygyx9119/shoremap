@@ -218,7 +218,8 @@ sub read_allele_counts {
 			$position = $a[1];
 		}
 		elsif ($consensus_format eq "vcf") {
-			# TODO
+			$chromosome = $a[0]; # DUMMY
+			$position = $a[1];
 		}
 
 		my $id = $chromosome."#".$position;  
@@ -292,7 +293,7 @@ sub read_referror {
 
 		# Check consistency
                 if (not defined($CHR2SIZE{$chr})) {
-                        die("Wrong chromosome annoation in referror file.\n Does not match entries in chromosome sizes file.\n");
+                        die("Wrong chromosome annoation in referror file: \"$chr\"\nDoes not match entries in chromosome sizes file.\n");
                 }
 
                 if ($pos =~ m/[^0-9.]/ ) { die("Referror position not numeric ($pos).\n"); }
@@ -331,7 +332,7 @@ sub read_marker {
 
 		# Check for consistency
 		if (not defined($CHR2SIZE{$chr})) {
-			die("Wrong chromosome annoation in marker file.\n Does not match entries in chromosome sizes file.\n");
+			die("Marker reading: Wrong chromosome annoation in marker file: \"$chr\" Marker format is $marker_format.\nDoes not match entries in chromosome sizes file.\n");
 		}
 
 		if ($pos =~ m/[^0-9.]/ ) { die("Marker position not numeric ($pos).\n"); }
@@ -544,18 +545,18 @@ See documentation for file formats.
 	}
 	mkdir($out_folder);
 
+        if (defined($CMD{"marker-format"})) {
+                $marker_format = $CMD{"marker-format"};
+                if ($marker_format ne "shore" and $marker_format ne "vcf") {
+                        die("marker-format has to be \"shore\" or \"vcf\"\n");
+                }
+        }
+
         $marker = $CMD{marker};
 	if (!-e $marker) {
                 die("File not found: $marker\n");
         }
 	read_marker();
-
-	if (defined($CMD{"marker-format"})) {
-		$marker_format = $CMD{"marker-format"};
-		if ($marker_format ne "shore" and $marker_format ne "vcf") {
-			die("marker-format has to be \"shore\" or \"vcf\"\n");
-		}
-	}
 
         $consensus = $CMD{consen};
 	if (!-e $consensus) {
