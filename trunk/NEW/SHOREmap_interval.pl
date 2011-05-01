@@ -583,8 +583,8 @@ See documentation for file formats.
 		#unshift @window_sizes, 1;
 	}
 
-	if (defined($CMD{windowstep})) {
-		$window_step = $CMD{windowstep};
+	if (defined($CMD{"window-step"})) {
+		$window_step = $CMD{"window-step"};
 		if ($window_step =~ m/[^0-9.]/ ) { die("Window step size is not numeric ($window_step).\n");}
 		if ($window_step < 1) { die("Window step size smaller than 1 not valid ($window_step).\n");}
 	}
