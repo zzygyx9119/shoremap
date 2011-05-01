@@ -66,10 +66,6 @@ for (chr in 1:(length(chrsize$V1))) {
 
 			# Set up plot data
 			freq = data$V3[data$V1[]==chrname] / ( data$V3[data$V1[]==chrname] + data$V4[data$V1[]==chrname] )
-			temp_winstep = winstep
-			if (winsize == 1) {
-				temp_winstep = 1
-			}
 
 			# Calc confidence interval
         	        ciData<- data[data[,1]==chrname,]
@@ -95,7 +91,7 @@ for (chr in 1:(length(chrsize$V1))) {
 				x_max = z_end	
 			}
 
-			plot(data$V2[data$V1[]==chrname], freq, ylim=c(y_min, y_max+0.2), xlim=c(x_min, x_max), type="n", axes=F, xlab="", ylab="Allele Frequency", main=paste("Chromosome:", chrname, " (Using window size of ", winsize, " reporting every ", temp_winstep, " bp.)", sep=""))
+			plot(data$V2[data$V1[]==chrname], freq, ylim=c(y_min, y_max+0.2), xlim=c(x_min, x_max), type="n", axes=F, xlab="", ylab="Allele Frequency", main=paste("Chromosome:", chrname, " (Using window size of ", winsize, " reporting every ", winstep, " bp.)", sep=""))
 
 			for (bgl in seq(0.1, 1, 0.1)) {
                                 abline(h=bgl, col="lightgrey")
