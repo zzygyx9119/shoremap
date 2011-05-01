@@ -120,7 +120,11 @@ for (chr in 1:(length(chrsize$V1))) {
 			}
 
 			# debug:
+			# Stig:
 			#abline(v=16702262, col="limegreen")
+
+			# Vini:
+			abline(v=18816001, col="limegreen")
 
 			labels=c(1, seq(ls, chrsize$V2[chrsize$V1[]==chrname], by=ls), chrsize$V2[chrsize$V1[]==chrname])
 			axis(1, label=labels, at=labels)
