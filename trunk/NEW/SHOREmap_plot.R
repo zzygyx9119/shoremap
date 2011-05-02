@@ -64,6 +64,8 @@ for (chr in 1:(length(chrsize$V1))) {
 			winsize=windowsizes$V1[winsize_i]
 			data<-read.table(paste(outputpath, "/SHOREmap.winsize", winsize, ".txt", sep=""))
 
+#			print(paste("Analysing: ",outputpath, "/SHOREmap.winsize", winsize, ".txt", sep=""))
+
 			# Set up plot data
 			freq = data$V3[data$V1[]==chrname] / ( data$V3[data$V1[]==chrname] + data$V4[data$V1[]==chrname] )
 
@@ -74,7 +76,7 @@ for (chr in 1:(length(chrsize$V1))) {
         	        ci_background_count<-ciData[,4]
                 	ci_forground_count<-ciData[,3]
 	                ci_error_count<-ciData[,5]
-        	        ci<-ShoreMap.confint(ci_chromosome, ci_positions, ci_background_count, ci_forground_count, ci_error_count, foreground_frequency=target, level=0.999, recurse=T)
+        	        ci<-ShoreMap.confint(ci_chromosome, ci_positions, ci_background_count, ci_forground_count, ci_error_count, foreground_frequency=target, level=0.999, recurse=T,forceInclude=T)
 
 			########################################################
 
