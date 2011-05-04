@@ -137,11 +137,8 @@ for (my $w = 0; $w < @window_sizes; $w++) {
 	
 				# If current window distant enough to the last report (step size)
 				# and if there are enough marker in the current window
-				# Only for the raw data report every point.
-				my $temp_window_step = $window_step;
-				$temp_window_step = 1 if $window_size == 1;
 
-				if (($report_pos > $last_report + $temp_window_step - 1) and
+				if (($report_pos > $last_report + $window_step - 1) and
                 	    	    ($filter_min_marker <= $marker_sum)) 
 				{
 
