@@ -76,7 +76,7 @@ for (chr in 1:(length(chrsize$V1))) {
         	        ci_background_count<-ciData[,4]
                 	ci_forground_count<-ciData[,3]
 	                ci_error_count<-ciData[,5]
-        	        ci<-ShoreMap.confint(ci_chromosome, ci_positions, ci_background_count, ci_forground_count, ci_error_count, foreground_frequency=target, level=0.999, recurse=T,forceInclude=T)
+        	        ci<-ShoreMap.confint(ci_chromosome, ci_positions, ci_background_count, ci_forground_count, ci_error_count, foreground_frequency=target, level=0.999, recurse=T,forceInclude=T,allowAdjustment=0.05)
 
 			########################################################
 
