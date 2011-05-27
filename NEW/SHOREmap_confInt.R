@@ -6,27 +6,29 @@
 #chromosome,positions, background_count,forground_count and error_count are vectors of the same length
 require(bbmle)
 
-ShoreMap.confint <- function(chromosome,positions,background_count,foreground_count, error_count,foreground_frequency=1,level=0.99,recurse=FALSE,forceInclude=FALSE,allowAdjustment=0.05,filterOutliers=TRUE){
+ShoreMap.confint <- function(chromosome,positions,background_count,foreground_count, error_count,foreground_frequency=1,level=0.99,recurse=FALSE,forceInclude=FALSE,allowAdjustment=0.05,filterOutliers=200000){
  foreground_frequency<-as.numeric(foreground_frequency)
  print(paste("analysing chr ",chromosome[1],", with ",length(chromosome)," markers for equality to ",foreground_frequency,"(",typeof(foreground_frequency),")",sep=""))
  internalData<- cbind(chromosome,positions,foreground_count,background_count,error_count)
  internalData<- internalData[rowSums(internalData[,3:5])>0,]
+ print(colSums(internalData))
  #perhaps not the nicest solution
  assign("storage_shoremapmle",matrix(c(-1,-1,-1),nrow=1),".GlobalEnv")
 # assign("savedCalc_shoremapmle",0,".GlobalEnv")
  minWindow=max(10,floor(length(internalData[,2])/1000))
- assign("i_shoremapmle",0,".GlobalEnv")
- freqs<-apply(internalData,1,function(x) x[3]/sum(x[3:5]))
- bestsize<- ceiling((max(table(sapply(2:length(freqs),function(x) if(freqs[x]==freqs[x-1]){i_shoremapmle}else{assign("i_shoremapmle",i_shoremapmle+1,".GlobalEnv");i_shoremapmle})))+1)/5)*5
- bestsize<-max(bestsize,minWindow)
+
  #apply filtering here:
- if(filterOutliers){ #condition
-  #how to set flanksize
-  f<-filterFreqs(freqs,20,1e-15)
-  freqs<- freqs[f]
+ if(filterOutliers>0){ #condition
+  #filterOutliers is the windowsize to use
+  f<-filterSampling(internalData,filterOutliers,0.05)
+  print(paste("Removed: ",sum(!f)," markers as outliers"))
   internalData<- internalData[f,]
  }
  assign("dataset_shoremapmle",internalData,".GlobalEnv")
+ freqs<-apply(internalData,1,function(x) x[3]/sum(x[3:5]))
+ assign("i_shoremapmle",0,".GlobalEnv")
+ bestsize<- ceiling((max(table(sapply(2:length(freqs),function(x) if(freqs[x]==freqs[x-1]){i_shoremapmle}else{assign("i_shoremapmle",i_shoremapmle+1,".GlobalEnv");i_shoremapmle})))+1)/5)*5
+ bestsize<-max(bestsize,minWindow)
  print(paste("bestsize:",bestsize))
  if(bestsize<length(dataset_shoremapmle[,1])){
   ps_global<-sapply(1:(length(dataset_shoremapmle[,1])-bestsize+1),function(x) {cur_freqs<-freqs[x:(x+bestsize-1)]; p<-tryCatch(t.test(cur_freqs,mu=foreground_frequency)$p.value,error=function(err) { -616});ifelse(is.na(p),-616,p)})
@@ -42,6 +44,29 @@ ShoreMap.confint <- function(chromosome,positions,background_count,foreground_co
   #too few markers
   c(0,0,919)
  }
+}
+
+filterSampling <- function(internalData,fs_windowsize=200000,fs_limit=0.05){
+ assign("dataset_shoremapmle",internalData,".GlobalEnv")
+ fs_ret<- c()
+ fs_windows<-floor(internalData[,2]/fs_windowsize)
+ fs_allIndices<-1:length(fs_windows)
+ print(paste("Analysing ", length(unique(fs_windows)), " ", fs_windowsize, " bp windows for outliers" ))
+ for(fs_window in unique(fs_windows)){
+  fs_curIndices<-fs_allIndices[fs_windows==fs_window]
+  fs_startPos<-min(fs_curIndices)
+  fs_size<-length(fs_curIndices)
+  if(fs_size>3){
+   fs_p.win<- samplefreqs(fs_startPos,fs_size)
+#   print(p.win)
+   fs_p.res<-apply(data[fs_curIndices,],1,function(x) dmultinom(x[3:5],prob=fs_p.win))
+#   print(paste("found ",sum(p.adjust(p.res,n=length(windows))<fs_limit)," outliers" ))
+   fs_ret<-c(fs_ret,fs_p.res)
+  }else{
+   fs_ret<-c(fs_ret,rep(1,fs_size))
+  }
+ }
+ p.adjust(fs_ret,method="holm")>=fs_limit
 }
 
 filterFreqs <- function(freqs,flanksize, limit=1e-15){
@@ -133,6 +158,16 @@ loglikelihood_mult <- function(P1=0.5,err=0.01,index=0,size=0){
   p.all <- c(p1,p2,pe)
   -sum(apply(dataset_shoremapmle[index:(index+size-1),],1,function(x){dmultinom(x=c(x[3],x[4],x[5]),prob=p.all,log=TRUE)}))
  }
+}
+
+samplefreqs <- function(startPos,size) {
+ esti<-multll(startPos,size)
+ P1<-esti@coef[1]
+ err<-esti@coef[2]
+ p1<- P1*(1-4*err/3)+err/3
+ pe<- 2*err/3
+ p2<- 1-p1-pe
+ c(p1,p2,pe)
 }
 
 multll<- function(x,size=10) {
