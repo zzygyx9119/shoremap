@@ -6,20 +6,27 @@
 #chromosome,positions, background_count,forground_count and error_count are vectors of the same length
 require(bbmle)
 
-ShoreMap.confint <- function(chromosome,positions,background_count,foreground_count, error_count,foreground_frequency=1,level=0.99,recurse=FALSE,forceInclude=FALSE,allowAdjustment=0.05){
+ShoreMap.confint <- function(chromosome,positions,background_count,foreground_count, error_count,foreground_frequency=1,level=0.99,recurse=FALSE,forceInclude=FALSE,allowAdjustment=0.05,filterOutliers=TRUE){
  foreground_frequency<-as.numeric(foreground_frequency)
  print(paste("analysing chr ",chromosome[1],", with ",length(chromosome)," markers for equality to ",foreground_frequency,"(",typeof(foreground_frequency),")",sep=""))
  internalData<- cbind(chromosome,positions,foreground_count,background_count,error_count)
  internalData<- internalData[rowSums(internalData[,3:5])>0,]
  #perhaps not the nicest solution
- assign("dataset_shoremapmle",internalData,".GlobalEnv")
  assign("storage_shoremapmle",matrix(c(-1,-1,-1),nrow=1),".GlobalEnv")
 # assign("savedCalc_shoremapmle",0,".GlobalEnv")
  minWindow=max(10,floor(length(internalData[,2])/1000))
  assign("i_shoremapmle",0,".GlobalEnv")
- freqs<-apply(dataset_shoremapmle,1,function(x) x[3]/sum(x[3:5]))
+ freqs<-apply(internalData,1,function(x) x[3]/sum(x[3:5]))
  bestsize<- ceiling((max(table(sapply(2:length(freqs),function(x) if(freqs[x]==freqs[x-1]){i_shoremapmle}else{assign("i_shoremapmle",i_shoremapmle+1,".GlobalEnv");i_shoremapmle})))+1)/5)*5
  bestsize<-max(bestsize,minWindow)
+ #apply filtering here:
+ if(filterOutliers){ #condition
+  #how to set flanksize
+  f<-filterFreqs(freqs,20,1e-15)
+  freqs<- freqs[f]
+  internalData<- internalData[f,]
+ }
+ assign("dataset_shoremapmle",internalData,".GlobalEnv")
  print(paste("bestsize:",bestsize))
  if(bestsize<length(dataset_shoremapmle[,1])){
   ps_global<-sapply(1:(length(dataset_shoremapmle[,1])-bestsize+1),function(x) {cur_freqs<-freqs[x:(x+bestsize-1)]; p<-tryCatch(t.test(cur_freqs,mu=foreground_frequency)$p.value,error=function(err) { -616});ifelse(is.na(p),-616,p)})
@@ -35,6 +42,13 @@ ShoreMap.confint <- function(chromosome,positions,background_count,foreground_co
   #too few markers
   c(0,0,919)
  }
+}
+
+filterFreqs <- function(freqs,flanksize, limit=1e-15){
+ #calculate adjusted p-values
+ outlier_p<-p.adjust(sapply((flanksize+1):(length(freqs)-flanksize),function(x) t.test(c(freqs[(x-flanksize):(x-1)],freqs[(x+1):(x+flanksize)]),mu=freqs[x])$p.value))
+ #flank and return
+ c(rep(TRUE,flanksize),outlier_p>=limit,rep(TRUE,flanksize))
 }
 
 identify_peaks <- function(indexL,indexH,frequency,level,minWindow,ps_global,bestsize,recurse,forceInclude=FALSE,allowAdjustment=0.05){
