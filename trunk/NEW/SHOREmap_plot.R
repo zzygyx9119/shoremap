@@ -110,11 +110,11 @@ for (chr in 1:(length(chrsize$V1))) {
 					#rect(ci[1, ci_i], y_max+0.02, ci[2, ci_i], y_max+0.06, col="orange", border="orange")
 					
 					# add size
-					size = ci[2, ci_i] - ci[1, ci_i] + 1
-					text(c(ci[1, ci_i] + size/2), c(y_max+0.035), labels=c(paste(size, sep="")))
+					#size = ci[2, ci_i] - ci[1, ci_i] + 1
+					#text(c(ci[1, ci_i] + size/2), c(y_max+0.035), labels=c(paste(size, sep="")))
 					# add positions
-					text(c(ci[1, ci_i]), c(y_max+0.09), labels=c(paste(ci[1, ci_i], sep="")))
-					text(c(ci[2, ci_i]), c(y_max+0.09), labels=c(paste(ci[2, ci_i], sep="")))
+					text(c(ci[1, ci_i]), c(y_max+0.09), labels=c(paste(ci[1, ci_i], sep="")), pos=2)
+					text(c(ci[2, ci_i]), c(y_max+0.09), labels=c(paste(ci[2, ci_i], sep="")), pos=4)
         	        	}
 			}
 			else {
