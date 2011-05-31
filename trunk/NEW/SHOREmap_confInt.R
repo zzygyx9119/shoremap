@@ -5,28 +5,30 @@
 
 #chromosome,positions, background_count,forground_count and error_count are vectors of the same length
 require(bbmle)
+require(EMT)
 
 ShoreMap.confint <- function(chromosome,positions,background_count,foreground_count, error_count,foreground_frequency=1,level=0.99,recurse=FALSE,forceInclude=FALSE,allowAdjustment=0.05,filterOutliers=200000){
+# print(sapply(ls(all.names=TRUE),function(x) eval(parse(text=paste("length(",x,")",sep="")))))
  foreground_frequency<-as.numeric(foreground_frequency)
  print(paste("analysing chr ",chromosome[1],", with ",length(chromosome)," markers for equality to ",foreground_frequency,"(",typeof(foreground_frequency),")",sep=""))
  internalData<- cbind(chromosome,positions,foreground_count,background_count,error_count)
  internalData<- internalData[rowSums(internalData[,3:5])>0,]
- print(colSums(internalData))
- #perhaps not the nicest solution
- assign("storage_shoremapmle",matrix(c(-1,-1,-1),nrow=1),".GlobalEnv")
-# assign("savedCalc_shoremapmle",0,".GlobalEnv")
- minWindow=max(10,floor(length(internalData[,2])/1000))
 
+ assign("storage_shoremapmle",matrix(c(-1,-1,-1),nrow=1),".GlobalEnv")
+# assign("savedCalc_shoremapmle",0,".GlobalEnv") 
  #apply filtering here:
+ filtered=c();
  if(filterOutliers>0){ #condition
   #filterOutliers is the windowsize to use
-  f<-filterSampling(internalData,filterOutliers,0.05)
+  f<-filterSampling(internalData,filterOutliers,0.05,FALSE)
   print(paste("Removed: ",sum(!f)," markers as outliers"))
+  filtered<-internalData[!f,2]
   internalData<- internalData[f,]
  }
  assign("dataset_shoremapmle",internalData,".GlobalEnv")
  freqs<-apply(internalData,1,function(x) x[3]/sum(x[3:5]))
  assign("i_shoremapmle",0,".GlobalEnv")
+ minWindow<-max(10,floor(length(internalData[,2])/1000))
  bestsize<- ceiling((max(table(sapply(2:length(freqs),function(x) if(freqs[x]==freqs[x-1]){i_shoremapmle}else{assign("i_shoremapmle",i_shoremapmle+1,".GlobalEnv");i_shoremapmle})))+1)/5)*5
  bestsize<-max(bestsize,minWindow)
  print(paste("bestsize:",bestsize))
@@ -39,28 +41,37 @@ ShoreMap.confint <- function(chromosome,positions,background_count,foreground_co
   ci<-apply(res,1,function(x) t(c(start=ifelse(x[3]<0,internalData[x[1],2],0), stop=ifelse(x[3]<0,internalData[x[1]+x[2]-1,2],0),p.value=ifelse(x[3]<0,-1*(x[3]+x[2]),x[3]))))
   print("found intervals:")
   apply(ci,2,function(x) print(paste(x[1],"-",x[2])))
-  ci
+  rm(storage_shoremapmle,dataset_shoremapmle,i_shoremapmle)
+  list(confidenceInterval=ci,excluded=filtered)
  }else{
   #too few markers
-  c(0,0,919)
+  rm(storage_shoremapmle,dataset_shoremapmle,i_shoremapmle)
+  list(confidenceInterval=c(0,0,919),excluded=filtered)
  }
 }
 
-filterSampling <- function(internalData,fs_windowsize=200000,fs_limit=0.05){
+filterSampling <- function(internalData,fs_windowsize=200000,fs_limit=0.05,fs_exact=FALSE){
  assign("dataset_shoremapmle",internalData,".GlobalEnv")
  fs_ret<- c()
  fs_windows<-floor(internalData[,2]/fs_windowsize)
  fs_allIndices<-1:length(fs_windows)
- print(paste("Analysing ", length(unique(fs_windows)), " ", fs_windowsize, " bp windows for outliers" ))
+ print(paste("Analysing ", length(unique(fs_windows)), " ", fs_windowsize, " bp windows for outliers",sep="" ))
  for(fs_window in unique(fs_windows)){
   fs_curIndices<-fs_allIndices[fs_windows==fs_window]
   fs_startPos<-min(fs_curIndices)
   fs_size<-length(fs_curIndices)
   if(fs_size>3){
    fs_p.win<- samplefreqs(fs_startPos,fs_size)
-#   print(p.win)
-   fs_p.res<-apply(data[fs_curIndices,],1,function(x) dmultinom(x[3:5],prob=fs_p.win))
-#   print(paste("found ",sum(p.adjust(p.res,n=length(windows))<fs_limit)," outliers" ))
+   fs_p.res<-c()
+   if(fs_exact){
+    sink("/dev/null");
+    fs_p.res<-apply(internalData[fs_curIndices,],1,function(x) multinomial.test(x[3:5],prob=fs_p.win)$p.value);
+    sink();
+   }else{
+    fs_p1<-fs_p.win[3]
+    fs_p2<-fs_p.win[1]/sum(fs_p.win[1:2])
+    fs_p.res<-apply(internalData[fs_curIndices,3:5],1,function(x) pbinom(x[3],size=sum(x),prob=fs_p1)*pbinom(x[1],size=sum(x[1:2]),prob=fs_p2));
+   }
    fs_ret<-c(fs_ret,fs_p.res)
   }else{
    fs_ret<-c(fs_ret,rep(1,fs_size))
@@ -141,52 +152,48 @@ identify_peaks <- function(indexL,indexH,frequency,level,minWindow,ps_global,bes
  }
 }
 
-loglikelihood_mult <- function(P1=0.5,err=0.01,index=0,size=0){
+loglikelihood_mult <- function(llm_P1=0.5,llm_err=0.01,llm_index=0,llm_size=0){
  #the loglikelihood function. Returns 110000 for unvalid p-values
 # if(P1<0 || P1>1 || err<1e-2 || err>1) {
- if(is.na(P1) || is.na(err)){
+ if(is.na(llm_P1) || is.na(llm_err)){
   220000
- } else if(P1<0 || P1>1 || err<0 || err>1) {
+ } else if(llm_P1<0 || llm_P1>1 || llm_err<0 || llm_err>1) {
   110000
  }else{
-  P1=as.numeric(P1)
-  err=as.numeric(err)
+  llm_P1<-as.numeric(llm_P1)
+  llm_err<-as.numeric(llm_err)
   #print(paste(P1,err,sep="##"))
-  p1<- P1*(1-4*err/3)+err/3
-  pe<- 2*err/3
-  p2<- 1-p1-pe
-  p.all <- c(p1,p2,pe)
-  -sum(apply(dataset_shoremapmle[index:(index+size-1),],1,function(x){dmultinom(x=c(x[3],x[4],x[5]),prob=p.all,log=TRUE)}))
+  llm_p1<- llm_P1*(1-4*llm_err/3)+llm_err/3
+  llm_pe<- 2*llm_err/3
+  llm_p2<- 1-llm_p1-llm_pe
+  llm_p.all <- c(llm_p1,llm_p2,llm_pe)
+  -sum(apply(dataset_shoremapmle[llm_index:(llm_index+llm_size-1),],1,function(llm_x){dmultinom(x=c(llm_x[3],llm_x[4],llm_x[5]),prob=llm_p.all,log=TRUE)}))
  }
 }
 
-samplefreqs <- function(startPos,size) {
- esti<-multll(startPos,size)
- P1<-esti@coef[1]
- err<-esti@coef[2]
- p1<- P1*(1-4*err/3)+err/3
- pe<- 2*err/3
- p2<- 1-p1-pe
- c(p1,p2,pe)
+samplefreqs <- function(sf_startPos,sf_size) {
+ sf_esti<-multll(sf_startPos,sf_size)
+ sf_P1<-sf_esti@coef[1]
+ sf_err<-sf_esti@coef[2]
+ sf_p1<- sf_P1*(1-4*sf_err/3)+sf_err/3
+ sf_pe<- 2*sf_err/3
+ sf_p2<- 1-sf_p1-sf_pe
+ c(sf_p1,sf_p2,sf_pe)
 }
 
-multll<- function(x,size=10) {
-# if(x%%100==0){
-#  print(x)
-# }
+multll<- function(ml_x,ml_size=10) {
  #a wrapper for the MLE test
- mle2(loglikelihood_mult,method="Nelder-Mead",start=list(P1=0.5,err=0.0001),fixed=list(index=x,size=size))
+ mle2(loglikelihood_mult,method="Nelder-Mead",start=list(llm_P1=0.5,llm_err=0.0001),fixed=list(llm_index=ml_x,llm_size=ml_size))
 }
 
 restrictedModel <- function(P1,x,size) {
- mle2(loglikelihood_mult,optimizer="optimize",start=list(err=0.0001),fixed=list(P1=P1,index=x,size=size),lower=0, upper=1)
+ mle2(loglikelihood_mult,optimizer="optimize",start=list(llm_err=0.0001),fixed=list(llm_P1=P1,llm_index=x,llm_size=size),lower=0, upper=1)
 }
 
 maxConf<-function(x,level=0.95,freq=0,indexL=0,indexH=Inf,minWindow=10,include=-1){
  #function to minimize for the optimization of the interval
  start<-floor(x[1])
  size<-floor(x[2])
-# print(paste("start:",start,", size:",size))
  indexL<- max(1,indexL)
  indexH<- min(length(dataset_shoremapmle[,2]),indexH)
  if(size<minWindow){
@@ -205,7 +212,6 @@ maxConf<-function(x,level=0.95,freq=0,indexL=0,indexH=Inf,minWindow=10,include=-
   #check storage
   if(sum(storage_shoremapmle[,1]==start&storage_shoremapmle[,2]==size)==1){
    res<-storage_shoremapmle[storage_shoremapmle[,1]==start&storage_shoremapmle[,2]==size,3]
-#   print(paste(start,size,res,sep=" # "))
 #   assign("savedCalc_shoremapmle",savedCalc_shoremapmle+1,".GlobalEnv")
    res
   }else{
@@ -224,7 +230,6 @@ maxConf<-function(x,level=0.95,freq=0,indexL=0,indexH=Inf,minWindow=10,include=-
      res<- size+p
     }
    }
-#   print(paste(start,size,res,sep="   "))
    assign("storage_shoremapmle",rbind(storage_shoremapmle,c(start,size,res)),".GlobalEnv")
    res
   }
@@ -233,7 +238,7 @@ maxConf<-function(x,level=0.95,freq=0,indexL=0,indexH=Inf,minWindow=10,include=-
 
 extend <- function(beststart,bestsize=10,level=0.99,freq=1,indexL=0,indexH=Inf,minWindow=10,forceInclude=TRUE){
  #given a window it extends this as far as possible to the left and right without exceeding the confidence level
- bestvalue=Inf
+ bestvalue<-Inf
  indexL<- max(1,indexL)
  indexH<- min(length(dataset_shoremapmle[,2]),indexH)
  inclusion<--1
