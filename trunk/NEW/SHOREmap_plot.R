@@ -76,7 +76,13 @@ for (chr in 1:(length(chrsize$V1))) {
         	        ci_background_count<-ciData[,4]
                 	ci_forground_count<-ciData[,3]
 	                ci_error_count<-ciData[,5]
-        	        ci<-ShoreMap.confint(ci_chromosome, ci_positions, ci_background_count, ci_forground_count, ci_error_count, foreground_frequency=target, level=0.999, recurse=F,forceInclude=T,allowAdjustment=0.05,filterOutliers=200000)
+        	        ci_result<-ShoreMap.confint(ci_chromosome, ci_positions, ci_background_count, ci_forground_count, ci_error_count, foreground_frequency=target, level=0.999, recurse=F,forceInclude=T,allowAdjustment=0.05,filterOutliers=200000)
+
+        	        ci<-ci_result$confidenceInterval
+                        ci_filtered <- ci_positions %in% ci_result$excluded
+
+        	        #extract removed positions
+                        
 
 			########################################################
 
@@ -99,7 +105,7 @@ for (chr in 1:(length(chrsize$V1))) {
                                 abline(h=bgl, col="lightgrey")
                         }
 
-			points(data$V2[data$V1[]==chrname], freq, ylim=c(y_min, y_max+0.2), xlim=c(x_min, x_max), pch=20)
+			points(data$V2[data$V1[]==chrname], freq, ylim=c(y_min, y_max+0.2), col=ifelse(ci_filtered,"red","black"), xlim=c(x_min, x_max), pch=20)
 		
 			# Plot confidence interval
 			if (ci[3, 1] <= 1) {
