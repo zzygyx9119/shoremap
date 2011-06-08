@@ -7,7 +7,7 @@
 require(bbmle)
 require(EMT)
 
-ShoreMap.confint <- function(chromosome,positions,background_count,foreground_count, error_count,foreground_frequency=1,level=0.99,recurse=FALSE,forceInclude=FALSE,allowAdjustment=0.05,filterOutliers=200000){
+ShoreMap.confint <- function(chromosome,positions,background_count,foreground_count, error_count,foreground_frequency=1,level=0.99,recurse=FALSE,forceInclude=FALSE,allowAdjustment=0.05,filterOutliers=200000,filterPValue=0.05) {
 # print(sapply(ls(all.names=TRUE),function(x) eval(parse(text=paste("length(",x,")",sep="")))))
  foreground_frequency<-as.numeric(foreground_frequency)
  print(paste("analysing chr ",chromosome[1],", with ",length(chromosome)," markers for equality to ",foreground_frequency,"(",typeof(foreground_frequency),")",sep=""))
@@ -20,7 +20,7 @@ ShoreMap.confint <- function(chromosome,positions,background_count,foreground_co
  filtered=c();
  if(filterOutliers>0){ #condition
   #filterOutliers is the windowsize to use
-  f<-filterSampling(internalData,filterOutliers,0.05,FALSE)
+  f<-filterSampling(internalData,as.numeric(filterOutliers),as.numeric(filterPValue),FALSE)
   print(paste("Removed: ",sum(!f)," markers as outliers"))
   filtered<-internalData[!f,2]
   internalData<- internalData[f,]

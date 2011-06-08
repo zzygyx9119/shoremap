@@ -16,6 +16,8 @@ windowsizes<-read.table(args[9])
 winstep<-as.numeric(args[10])
 path<-args[11]
 outputpath<-args[12]
+filterOutliers<-args[13] # size of window around marker for outlier assessment
+filterPValue<-args[14] # p-value for outlier removal
 
 ##########################################
 # Set up zoom interval if it exists
@@ -76,7 +78,7 @@ for (chr in 1:(length(chrsize$V1))) {
         	        ci_background_count<-ciData[,4]
                 	ci_forground_count<-ciData[,3]
 	                ci_error_count<-ciData[,5]
-        	        ci_result<-ShoreMap.confint(ci_chromosome, ci_positions, ci_background_count, ci_forground_count, ci_error_count, foreground_frequency=target, level=0.999, recurse=F,forceInclude=T,allowAdjustment=0.05,filterOutliers=200000)
+        	        ci_result<-ShoreMap.confint(ci_chromosome, ci_positions, ci_background_count, ci_forground_count, ci_error_count, foreground_frequency=target, level=0.999, recurse=F,forceInclude=T,allowAdjustment=0.05,filterOutliers=filterOutliers, filterPValue=filterPValue)
 
         	        ci<-ci_result$confidenceInterval
                         ci_filtered <- ci_positions %in% ci_result$excluded
@@ -129,10 +131,10 @@ for (chr in 1:(length(chrsize$V1))) {
 
 			# debug:
 			# Stig:
-			#abline(v=16702262, col="limegreen")
+			abline(v=16702262, col="limegreen")
 
 			# Vini:
-			abline(v=18816001, col="limegreen")
+			#abline(v=18816001, col="limegreen")
 
 			labels=c(1, seq(ls, chrsize$V2[chrsize$V1[]==chrname], by=ls), chrsize$V2[chrsize$V1[]==chrname])
 			axis(1, label=labels, at=labels)
