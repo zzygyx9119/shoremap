@@ -31,6 +31,9 @@ my $filter_min_marker;
 my $filter_min_coverage;
 my $filter_errors;
 
+my $outlier_window_size;
+my $outlier_pvalue;
+
 my $reg_chromosome;
 my $reg_begin;
 my $reg_end;
@@ -161,7 +164,7 @@ for (my $w = 0; $w < @window_sizes; $w++) {
 
 
 my $pdffile = "$out_folder/SHOREmap.pdf";
-my $cmd = "R --slave --vanilla --args $expect $chrsizes $pdffile $out_folder/SHOREmap.zoom_region.txt $out_folder/SHOREmap.window_sizes.txt $window_step $FindBin::Bin $out_folder < ".$FindBin::Bin."/SHOREmap_plot.R"; # 2> /dev/null";
+my $cmd = "R --slave --vanilla --args $expect $chrsizes $pdffile $out_folder/SHOREmap.zoom_region.txt $out_folder/SHOREmap.window_sizes.txt $window_step $FindBin::Bin $out_folder $outlier_window_size $outlier_pvalue < ".$FindBin::Bin."/SHOREmap_plot.R"; # 2> /dev/null";
 print STDERR $cmd, "\n" if $verbose == 1;
 system($cmd);
 
@@ -438,41 +441,46 @@ sub init {
 SHOREmap 2.0
 
 Mandatory:
---target         DOUBLE   Target allele frequency 
-                          (default: 1.0)
---chrsizes       STRING   Chromosome sizes file
---folder         STRING   Output folder
---marker         STRING   Marker file
---marker-format  STRING   Marker file format, \"shore\" or 
-                          \"vcf\" (default: \"shore\")
---consen         STRING   Consensus file 
---consen-format  STRING   Consensus file format, \"shore\" 
-                          or \"vcf\" (default: \"shore\")
---window-size    STRING   Up to three window sizes
-                          (default: \"50000,200000,350000\")
---window-step    INT      Distance of sliding windows
-                          (default: 10000)
+--target                DOUBLE   Target allele frequency 
+                                 (default: 1.0)
+--chrsizes              STRING   Chromosome sizes file
+--folder                STRING   Output folder
+--marker                STRING   Marker file
+--marker-format         STRING   Marker file format, \"shore\" or 
+                                 \"vcf\" (default: \"shore\")
+--consen                STRING   Consensus file 
+--consen-format         STRING   Consensus file format, \"shore\" 
+                                 or \"vcf\" (default: \"shore\")
+--window-size           STRING   Up to three window sizes
+                                 (default: \"50000,200000,350000\")
+--window-step           INT      Distance of sliding windows
+                                 (default: 10000)
 
 Filter:
---min-marker     INT      Filter windows with low numbers 
-                          of markers (default: not set)
---min-coverage   INT      Filter single marker with low 
-                          average coverage (default: not 
-                          set)
--filter-errors            Filter markers with obvious 
-                          errors (default: not set)
+--min-marker            INT      Filter windows with low numbers 
+                                 of markers (default: not set)
+--min-coverage          INT      Filter single marker with low 
+                                 average coverage (default: not 
+                                 set)
+-filter-errors                   Filter markers with obvious 
+                                 errors (default: not set)
+--outlier-window-size   INT      Window size to assess local
+                                 allele frequency used for 
+                                 outlier removal
+--outlier-pvalue        DOUBLE   p-value used for outlier
+                                 removal
 
 Zooming:
---chromosome     INT      Zoom to chromosome ..
---begin          INT      .. from here ..
---end            INT      .. to here with a ..
---minfreq        INT      .. minimal to ..
---maxfreq        INT      .. maximal frequency.
+--chromosome            INT      Zoom to chromosome ..
+--begin                 INT      .. from here ..
+--end                   INT      .. to here with a ..
+--minfreq               INT      .. minimal to ..
+--maxfreq               INT      .. maximal frequency.
 
 Optional:
---referrors      STRING   Reference errors file
--background2              Mutation in second parent
--verbose                  Be talkative
+--referrors             STRING   Reference errors file
+-background2                     Mutation in second parent
+-verbose                         Be talkative
 
 See documentation for file formats.
 ");
@@ -490,6 +498,9 @@ See documentation for file formats.
 	$filter_min_marker = 0;
 	$filter_min_coverage = 0;
 	$filter_errors = 0;
+
+	$outlier_window_size = 200000;
+	$outlier_pvalue = 0.05;
 	
 	$reg_chromosome = "";
 	$reg_begin = -1;
@@ -506,7 +517,7 @@ See documentation for file formats.
 		exit(0);
 	}
 
-        GetOptions(\%CMD, "target=f", "chrsizes=s", "folder=s", "marker=s", "marker-format=s", "consen=s", "consen-format=s", "window-size=s", "window-step=i", "min-marker=i", "min-coverage=i", "filter-errors", "chromosome=i", "begin=i", "end=i", "minfreq=f", "maxfreq=f", "verbose", "background2", "referrors=s");
+        GetOptions(\%CMD, "target=f", "chrsizes=s", "folder=s", "marker=s", "marker-format=s", "consen=s", "consen-format=s", "window-size=s", "window-step=i", "min-marker=i", "min-coverage=i", "filter-errors", "chromosome=i", "begin=i", "end=i", "minfreq=f", "maxfreq=f", "verbose", "background2", "referrors=s", "outlier-window-size=i", "outlier-pvalue=f");
 
         die("Please specify target allele frequency\n") unless defined($CMD{target});
         die("Please specify chromosome sizes file\n") unless defined($CMD{chrsizes});
@@ -598,6 +609,14 @@ See documentation for file formats.
 
 	if (defined($CMD{"filter-errors"})) {
                 $filter_errors = 1;
+        }
+
+	if (defined($CMD{"outlier-window-size"})) {
+                $outlier_window_size = $CMD{"outlier-window-size"};
+        }
+
+	if (defined($CMD{"outlier-pvalue"})) {
+                $outlier_pvalue = $CMD{"outlier-pvalue"};
         }
 
 	if (defined($CMD{chromosome}) or defined($CMD{begin}) or defined($CMD{end}) or defined($CMD{minfreq}) or defined($CMD{maxfreq})) {
