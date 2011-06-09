@@ -71,6 +71,7 @@ my %WS2POS2FREQ = ();
 
 for (my $w = 0; $w < @window_sizes; $w++) {
 	my $window_size = $window_sizes[$w];
+	$window_step = $window_size;
 
 	print STDERR "Analyzing window size: ", $window_size, "\n" if $verbose == 1;
 	my $outputfile = $out_folder."/SHOREmap.winsize".$window_size.".txt";
@@ -150,9 +151,6 @@ for (my $w = 0; $w < @window_sizes; $w++) {
 					print OUT $chr, "\t", $report_pos, "\t", $allele1_sum, "\t", $allele2_sum, "\t", $error_sum, "\t", $boost, "\n";
 
 					$last_report = $report_pos;
-
-					my $max_val = 1000;
-
 
 				}
                 	}
@@ -375,7 +373,7 @@ sub write_log {
 
 	open FILE, ">$out_folder/SHOREmap.log";
 
-	print FILE "# $0 --target $expect --chrsizes $chrsizes --folder $out_folder --marker $marker --marker-format $marker_format --consen $consensus --consen-format $consensus_format --window-size ",join(",",@window_sizes), " --window-step $window_step ";
+	print FILE "# $0 --target $expect --chrsizes $chrsizes --folder $out_folder --marker $marker --marker-format $marker_format --consen $consensus --consen-format $consensus_format --window-size $window_size_string "; #,join(",",@window_sizes);, " --window-step $window_step ";
 
 	if ($filter_min_marker > 0) {
 		print FILE "--min-marker $filter_min_marker ";
@@ -451,10 +449,8 @@ Mandatory:
 --consen                STRING   Consensus file 
 --consen-format         STRING   Consensus file format, \"shore\" 
                                  or \"vcf\" (default: \"shore\")
---window-size           STRING   Up to three window sizes
-                                 (default: \"50000,200000,350000\")
---window-step           INT      Distance of sliding windows
-                                 (default: 10000)
+--window-size           STRING   Smoothed visulization
+                                 (default: \"25000\")
 
 Filter:
 --min-marker            INT      Filter windows with low numbers 
@@ -492,8 +488,8 @@ See documentation for file formats.
 	$marker_format = "shore";
 	$consensus = "";
 	$consensus_format = "shore";
-	$window_size_string = "50000,200000,350000";
-	$window_step = 10000;
+	$window_size_string = "25000";
+	$window_step = 25000;
 
 	$filter_min_marker = 0;
 	$filter_min_coverage = 0;
@@ -517,7 +513,7 @@ See documentation for file formats.
 		exit(0);
 	}
 
-        GetOptions(\%CMD, "target=f", "chrsizes=s", "folder=s", "marker=s", "marker-format=s", "consen=s", "consen-format=s", "window-size=s", "window-step=i", "min-marker=i", "min-coverage=i", "filter-errors", "chromosome=i", "begin=i", "end=i", "minfreq=f", "maxfreq=f", "verbose", "background2", "referrors=s", "outlier-window-size=i", "outlier-pvalue=f");
+        GetOptions(\%CMD, "target=f", "chrsizes=s", "folder=s", "marker=s", "marker-format=s", "consen=s", "consen-format=s", "min-marker=i", "min-coverage=i", "filter-errors", "chromosome=i", "begin=i", "end=i", "minfreq=f", "maxfreq=f", "verbose", "background2", "referrors=s", "outlier-window-size=i", "outlier-pvalue=f", "window-size=s"); #, "window-step=i");
 
         die("Please specify target allele frequency\n") unless defined($CMD{target});
         die("Please specify chromosome sizes file\n") unless defined($CMD{chrsizes});
@@ -581,21 +577,26 @@ See documentation for file formats.
 	if (defined($CMD{"window-size"})) {
                 $window_size_string = $CMD{"window-size"};
 	}
-	my @a = split ",", $window_size_string;
-	foreach my $e (@a) {
-		if ($e =~ m/[^0-9.]/ ) { die("Window size is not numeric ($e).\n");}
-		if ($e < 1) { die("Window size smaller than 1 not valid ($e).\n");}
-	}
-	@window_sizes = sort {$a <=> $b} @a;
+	# MULTIPLE:
+	#my @a = split ",", $window_size_string;
+	#foreach my $e (@a) {
+	#	if ($e =~ m/[^0-9.]/ ) { die("Window size is not numeric ($e).\n");}
+	#	if ($e < 1) { die("Window size smaller than 1 not valid ($e).\n");}
+	#}
+	#@window_sizes = sort {$a <=> $b} @a;
+	# ONE:
+	if ($window_size_string =~ m/[^0-9.]/ ) { die("Window size is not numeric ($window_size_string).\n");}
+        if ($window_size_string < 1) { die("Window size smaller than 1 not valid ($window_size_string).\n");}
+	push @window_sizes, $window_size_string;
 	if ($window_sizes[0] != 1) {
-		#unshift @window_sizes, 1;
+		unshift @window_sizes, 1;
 	}
 
-	if (defined($CMD{"window-step"})) {
-		$window_step = $CMD{"window-step"};
-		if ($window_step =~ m/[^0-9.]/ ) { die("Window step size is not numeric ($window_step).\n");}
-		if ($window_step < 1) { die("Window step size smaller than 1 not valid ($window_step).\n");}
-	}
+	#if (defined($CMD{"window-step"})) {
+	#	$window_step = $CMD{"window-step"};
+	#	if ($window_step =~ m/[^0-9.]/ ) { die("Window step size is not numeric ($window_step).\n");}
+	#	if ($window_step < 1) { die("Window step size smaller than 1 not valid ($window_step).\n");}
+	#}
 
 	if (defined($CMD{"min-marker"})) {
                 $filter_min_marker = $CMD{"min-marker"};
