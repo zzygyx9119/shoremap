@@ -146,9 +146,9 @@ for (my $w = 0; $w < @window_sizes; $w++) {
                 	    	    ($filter_min_marker <= $marker_sum)) 
 				{
 
-					my $boost = get_boost($allele1_sum, $allele2_sum);
+					#my $boost = get_boost($allele1_sum, $allele2_sum);
 
-					print OUT $chr, "\t", $report_pos, "\t", $allele1_sum, "\t", $allele2_sum, "\t", $error_sum, "\t", $boost, "\n";
+					print OUT $chr, "\t", $report_pos, "\t", $allele1_sum, "\t", $allele2_sum, "\t", $error_sum, "\n"; #, $boost, "\n";
 
 					$last_report = $report_pos;
 

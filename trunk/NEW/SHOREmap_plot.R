@@ -37,9 +37,9 @@ if(file.exists(zoomf)) {
 # Set up graphical device
 # and graphics related parameter
 
-pdf(file=fpdf, width=15, height=8*length(windowsizes$V1))
+pdf(file=fpdf, width=17, height=10) #*length(windowsizes$V1))
 layoutdat=seq(1, 2*length(windowsizes$V1))
-layoutmat=matrix(data=layoutdat, ncol=1, nrow=2*length(windowsizes$V1))
+layoutmat=matrix(data=layoutdat, ncol=1, nrow=2) #*length(windowsizes$V1))
 layout(layoutmat)
 
 options(scipen=999999999)
@@ -101,11 +101,13 @@ for (chr in 1:(length(chrsize$V1))) {
 				x_max = z_end	
 			}
 
-			plot(data$V2[data$V1[]==chrname], freq, ylim=c(y_min, y_max+0.2), xlim=c(x_min, x_max), type="n", axes=F, xlab="", ylab="Allele Frequency", main=paste("Chromosome:", chrname, " (Using window size of ", winsize, " reporting every ", winstep, " bp.)", sep=""))
+			if (winsize == 1) {
+				plot(data$V2[data$V1[]==chrname], freq, ylim=c(y_min, y_max+0.2), xlim=c(x_min, x_max), type="n", axes=F, xlab="", ylab="Allele Frequency", main=paste("Chromosome:", chrname, " (Using window size of ", winsize, " reporting every ", winstep, " bp.)", sep=""))
 			
-			for (bgl in seq(0.1, 1, 0.1)) {
-                               	abline(h=bgl, col="lightgrey")
-                        }
+				for (bgl in seq(0.1, 1, 0.1)) {
+                	               	abline(h=bgl, col="lightgrey")
+                        	}
+			}
 	
 			if (winsize == 1) { 
 				points(data$V2[data$V1[]==chrname], freq, ylim=c(y_min, y_max+0.2), col=ifelse(ci_filtered,"red","black"), xlim=c(x_min, x_max), pch=20)
@@ -131,7 +133,7 @@ for (chr in 1:(length(chrsize$V1))) {
 
 				# debug:
 				# Stig:
-				abline(v=16702262, col="limegreen")
+				#abline(v=16702262, col="limegreen")
 
 				# Vini:
 				#abline(v=18816001, col="limegreen")
@@ -142,7 +144,7 @@ for (chr in 1:(length(chrsize$V1))) {
 
 			}
 			else {
-                                points(data$V2[data$V1[]==chrname], freq, ylim=c(y_min, y_max+0.2), col="grey", xlim=c(x_min, x_max))
+                                points(data$V2[data$V1[]==chrname], freq, ylim=c(y_min, y_max+0.2), col="grey", xlim=c(x_min, x_max), pch=20)
                         }
 		}
 
@@ -153,8 +155,10 @@ for (chr in 1:(length(chrsize$V1))) {
 		for (winsize_i in 1:(length(windowsizes$V1))) {
 
                         winsize=windowsizes$V1[winsize_i]
+                        data<-read.table(paste(outputpath, "/SHOREmap.winsize", winsize, ".txt", sep=""))
 
-			if (windowsize == 1) {
+			if (winsize == 1) {
+
 				max_read = max(max(data$V3[data$V1[]==chrname]), max(data$V4[data$V1[]==chrname]))
 	
 				plot(data$V2[data$V1[]==chrname], data$V3[data$V1[]==chrname], type="h", col="darkblue", xlim=c(x_min, x_max), ylim=c((-1)*max_read, max_read), axes=F, ylab="Read count", xlab="")
