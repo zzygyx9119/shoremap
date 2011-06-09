@@ -523,6 +523,10 @@ See documentation for file formats.
 	####################################################################################
 	## Store values and check for consistency
 
+        if (defined($CMD{background2})) {
+                $background2 = 1;
+        }
+
 	$expect = $CMD{target};
 	if (!($expect >= 0 and $expect <= 1.0)) {
 		die("target must be between 0 and 1.\n");
@@ -646,10 +650,6 @@ See documentation for file formats.
                 if ($reg_freq_max < 0 or $reg_freq_max > 1) { die("Zoom max. freq. out of bounds ($reg_freq_max).\n");}
 		if ($reg_freq_min > $reg_freq_max) { die("Zoom min. freq. larger than zoom max. freq. ($reg_freq_min:$reg_freq_max).\n");}
 
-        }
-
-	if (defined($CMD{background2})) {
-                $background2 = 1;
         }
 
 	if (defined($CMD{verbose})) {
