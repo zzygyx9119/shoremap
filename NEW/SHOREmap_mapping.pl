@@ -133,7 +133,6 @@ for (my $w = 0; $w < @window_sizes; $w++) {
 			push @allele2_counts, $CHR2POS2ALLELE2_COUNT{$chr}{$pos};
 			push @error_counts, $CHR2POS2ERROR_COUNT{$chr}{$pos};
 
-		
 			if ($marker_sum!= 0) {
 
 				# Calc where to report current window
@@ -147,7 +146,6 @@ for (my $w = 0; $w < @window_sizes; $w++) {
 				{
 
 					#my $boost = get_boost($allele1_sum, $allele2_sum);
-
 					print OUT $chr, "\t", $report_pos, "\t", $allele1_sum, "\t", $allele2_sum, "\t", $error_sum, "\n"; #, $boost, "\n";
 
 					$last_report = $report_pos;
@@ -220,6 +218,10 @@ sub read_allele_counts {
 			$position = $a[1];
 		}
 
+		if (substr($chromosome, 0, 3) eq "Chr") {
+			$chromosome =~ s/Chr//g;
+		}
+
 		my $id = $chromosome."#".$position;  
 
 		if (defined($ALLELE1{$id})) {
@@ -237,9 +239,6 @@ sub read_allele_counts {
 
 			if ($consensus_format eq "shore") {
 
-				$chromosome = $a[0];
-				$position = $a[1];
-				
 				$count_allele1 = $a[4] if ($allele1 eq "A"); 
 				$count_allele1 = $a[5] if ($allele1 eq "C"); 
 				$count_allele1 = $a[6] if ($allele1 eq "G"); 
