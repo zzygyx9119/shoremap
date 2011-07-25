@@ -41,12 +41,10 @@ ShoreMap.confint <- function(chromosome,positions,background_count,foreground_co
   ci<-apply(res,1,function(x) t(c(start=ifelse(x[3]<0,internalData[x[1],2],0), stop=ifelse(x[3]<0,internalData[x[1]+x[2]-1,2],0),p.value=ifelse(x[3]<0,-1*(x[3]+x[2]),x[3]))))
   print("found intervals:")
   apply(ci,2,function(x) print(paste(x[1],"-",x[2])))
-  rm(storage_shoremapmle,dataset_shoremapmle,i_shoremapmle)
   list(confidenceInterval=ci,excluded=filtered)
  }else{
   #too few markers
-  rm(storage_shoremapmle,dataset_shoremapmle,i_shoremapmle)
-  list(confidenceInterval=c(0,0,919),excluded=filtered)
+  list(confidenceInterval=t(t(c(0,0,919))),excluded=filtered)
  }
 }
 
@@ -70,7 +68,8 @@ filterSampling <- function(internalData,fs_windowsize=200000,fs_limit=0.05,fs_ex
    }else{
     fs_p1<-fs_p.win[3]
     fs_p2<-fs_p.win[1]/sum(fs_p.win[1:2])
-    fs_p.res<-apply(internalData[fs_curIndices,3:5],1,function(x) pbinom(x[3],size=sum(x),prob=fs_p1)*pbinom(x[1],size=sum(x[1:2]),prob=fs_p2));
+    fs_p2Alt<-fs_p.win[3]/sum(fs_p.win[1:2])
+    fs_p.res<-apply(internalData[fs_curIndices,3:5],1,function(x) pbinom(x[3],size=sum(x),prob=fs_p1)*ifelse(x[1]<x[2],pbinom(x[1],size=sum(x[1:2]),prob=fs_p2),pbinom(x[2],size=sum(x[1:2]),prob=fs_p2Alt)));
    }
    fs_ret<-c(fs_ret,fs_p.res)
   }else{
