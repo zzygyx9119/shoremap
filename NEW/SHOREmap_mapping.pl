@@ -17,6 +17,7 @@ use FindBin;
 
 ### Command line parameters ##################################################################
 my $expect;
+my $confidence;
 my $chrsizes;
 my $out_folder;
 my $marker;
@@ -160,7 +161,7 @@ for (my $w = 0; $w < @window_sizes; $w++) {
 
 
 my $pdffile = "$out_folder/SHOREmap.pdf";
-my $cmd = "R --slave --vanilla --args $expect $chrsizes $pdffile $out_folder/SHOREmap.zoom_region.txt $out_folder/SHOREmap.window_sizes.txt $window_step $FindBin::Bin $out_folder $outlier_window_size $outlier_pvalue < ".$FindBin::Bin."/SHOREmap_plot.R"; # 2> /dev/null";
+my $cmd = "R --slave --vanilla --args $expect $chrsizes $pdffile $out_folder/SHOREmap.zoom_region.txt $out_folder/SHOREmap.window_sizes.txt $window_step $FindBin::Bin $out_folder $outlier_window_size $outlier_pvalue $confidence < ".$FindBin::Bin."/SHOREmap_plot.R"; # 2> /dev/null";
 print STDERR $cmd, "\n" if $verbose == 1;
 system($cmd);
 
@@ -372,7 +373,7 @@ sub write_log {
 
 	open FILE, ">$out_folder/SHOREmap.log";
 
-	print FILE "# $0 --target $expect --chrsizes $chrsizes --folder $out_folder --marker $marker --marker-format $marker_format --consen $consensus --consen-format $consensus_format --window-size $window_size_string "; #,join(",",@window_sizes);, " --window-step $window_step ";
+	print FILE "# $0 --target $expect --conf $confidence --chrsizes $chrsizes --folder $out_folder --marker $marker --marker-format $marker_format --consen $consensus --consen-format $consensus_format --window-size $window_size_string "; #,join(",",@window_sizes);, " --window-step $window_step ";
 
 	if ($filter_min_marker > 0) {
 		print FILE "--min-marker $filter_min_marker ";
@@ -440,6 +441,8 @@ SHOREmap 2.0
 Mandatory:
 --target                DOUBLE   Target allele frequency 
                                  (default: 1.0)
+--conf                  DOUBLE   Confidence level
+                                 (default: 0.95)
 --chrsizes              STRING   Chromosome sizes file
 --folder                STRING   Output folder
 --marker                STRING   Marker file
@@ -481,6 +484,7 @@ See documentation for file formats.
 ");
 
 	$expect = 1.0;
+	$confidence = 0.95;
 	$chrsizes = "";
 	$out_folder = "";
 	$marker = "";
@@ -512,7 +516,7 @@ See documentation for file formats.
 		exit(0);
 	}
 
-        GetOptions(\%CMD, "target=f", "chrsizes=s", "folder=s", "marker=s", "marker-format=s", "consen=s", "consen-format=s", "min-marker=i", "min-coverage=i", "filter-errors", "chromosome=i", "begin=i", "end=i", "minfreq=f", "maxfreq=f", "verbose", "background2", "referrors=s", "outlier-window-size=i", "outlier-pvalue=f", "window-size=s"); #, "window-step=i");
+        GetOptions(\%CMD, "target=f", "conf=f", "chrsizes=s", "folder=s", "marker=s", "marker-format=s", "consen=s", "consen-format=s", "min-marker=i", "min-coverage=i", "filter-errors", "chromosome=i", "begin=i", "end=i", "minfreq=f", "maxfreq=f", "verbose", "background2", "referrors=s", "outlier-window-size=i", "outlier-pvalue=f", "window-size=s"); #, "window-step=i");
 
         die("Please specify target allele frequency\n") unless defined($CMD{target});
         die("Please specify chromosome sizes file\n") unless defined($CMD{chrsizes});
@@ -531,6 +535,13 @@ See documentation for file formats.
 	if (!($expect >= 0 and $expect <= 1.0)) {
 		die("target must be between 0 and 1.\n");
 	}
+
+	if (defined($CMD{conf})) {
+                $confidence = $CMD{"conf"};
+		if ($confidence <= 0 or $confidence > 1) {
+			die ("Confidence level needs to be larger 0 and smaller 1.\n");
+		}
+        }
 
 	$chrsizes = $CMD{chrsizes};
 	if (!-e $chrsizes) {
