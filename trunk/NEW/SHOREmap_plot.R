@@ -18,6 +18,7 @@ path<-args[11]
 outputpath<-args[12]
 filterOutliers<-args[13] # size of window around marker for outlier assessment
 filterPValue<-args[14] # p-value for outlier removal
+conf_level<-args[15]
 
 ##########################################
 # Set up zoom interval if it exists
@@ -38,6 +39,7 @@ if(file.exists(zoomf)) {
 # and graphics related parameter
 
 pdf(file=fpdf, width=17, height=10) #*length(windowsizes$V1))
+#png(filename=fpdf, width=17, height=10, units="in", res=72) 
 layoutdat=seq(1, 2*length(windowsizes$V1))
 layoutmat=matrix(data=layoutdat, ncol=1, nrow=2) #*length(windowsizes$V1))
 layout(layoutmat)
@@ -79,7 +81,7 @@ for (chr in 1:(length(chrsize$V1))) {
 	        	        ci_background_count<-ciData[,4]
         	        	ci_forground_count<-ciData[,3]
 	        	        ci_error_count<-ciData[,5]
-        	        	ci_result<-ShoreMap.confint(ci_chromosome, ci_positions, ci_background_count, ci_forground_count, ci_error_count, foreground_frequency=target, level=0.95, recurse=F,forceInclude=T,allowAdjustment=0.05,filterOutliers=filterOutliers, filterPValue=filterPValue)
+        	        	ci_result<-ShoreMap.confint(ci_chromosome, ci_positions, ci_background_count, ci_forground_count, ci_error_count, foreground_frequency=target, level=conf_level, recurse=F, forceInclude=T, allowAdjustment=0.05,filterOutliers=filterOutliers, filterPValue=filterPValue)
 
 	        	        ci<-ci_result$confidenceInterval
         	                ci_filtered <- ci_positions %in% ci_result$excluded
@@ -102,7 +104,7 @@ for (chr in 1:(length(chrsize$V1))) {
 			}
 
 			if (winsize == 1) {
-				plot(data$V2[data$V1[]==chrname], freq, ylim=c(y_min, y_max+0.2), xlim=c(x_min, x_max), type="n", axes=F, xlab="", ylab="Allele Frequency", main=paste("Chromosome:", chrname, " (In black, window size of", winstep, " bp.)", sep=""))
+				plot(data$V2[data$V1[]==chrname], freq, ylim=c(y_min, y_max+0.2), xlim=c(x_min, x_max), type="n", axes=F, xlab="", ylab="Allele Frequency", main=paste("Chromosome:", chrname, " (In black, window size of ", winstep, " bp.)", sep=""))
 			
 				for (bgl in seq(0.1, 1, 0.1)) {
                 	               	lines(c(1, chrsize$V2[chr]), c(bgl, bgl), col="lightgrey")
