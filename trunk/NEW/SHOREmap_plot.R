@@ -102,7 +102,7 @@ for (chr in 1:(length(chrsize$V1))) {
 			}
 
 			if (winsize == 1) {
-				plot(data$V2[data$V1[]==chrname], freq, ylim=c(y_min, y_max+0.2), xlim=c(x_min, x_max), type="n", axes=F, xlab="", ylab="Allele Frequency", main=paste("Chromosome:", chrname, " (Using window size of ", winsize, " reporting every ", winstep, " bp.)", sep=""))
+				plot(data$V2[data$V1[]==chrname], freq, ylim=c(y_min, y_max+0.2), xlim=c(x_min, x_max), type="n", axes=F, xlab="", ylab="Allele Frequency", main=paste("Chromosome:", chrname, " (In black, window size of", winstep, " bp.)", sep=""))
 			
 				for (bgl in seq(0.1, 1, 0.1)) {
                 	               	lines(c(1, chrsize$V2[chr]), c(bgl, bgl), col="lightgrey")
