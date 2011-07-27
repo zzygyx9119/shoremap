@@ -10,10 +10,9 @@ require(EMT)
 ShoreMap.confint <- function(chromosome,positions,background_count,foreground_count, error_count,foreground_frequency=1,level=0.99,recurse=FALSE,forceInclude=FALSE,allowAdjustment=0.05,filterOutliers=200000,filterPValue=0.05) {
 # print(sapply(ls(all.names=TRUE),function(x) eval(parse(text=paste("length(",x,")",sep="")))))
  foreground_frequency<-as.numeric(foreground_frequency)
- print(paste("analysing chr ",chromosome[1],", with ",length(chromosome)," markers for equality to ",foreground_frequency,"(",typeof(foreground_frequency),")",sep=""))
  internalData<- cbind(chromosome,positions,foreground_count,background_count,error_count)
  internalData<- internalData[rowSums(internalData[,3:5])>0,]
-
+ print(paste("analysing chr ",chromosome[1],", with ",length(chromosome)," (",length(internalData$V1),") markers for equality to ",foreground_frequency,"(",typeof(foreground_frequency),")",sep=""))
  assign("storage_shoremapmle",matrix(c(-1,-1,-1),nrow=1),".GlobalEnv")
 # assign("savedCalc_shoremapmle",0,".GlobalEnv") 
  #apply filtering here:
@@ -46,6 +45,41 @@ ShoreMap.confint <- function(chromosome,positions,background_count,foreground_co
   #too few markers
   list(confidenceInterval=t(t(c(0,0,919))),excluded=filtered)
  }
+}
+
+filterSamplingv2 <- function(internalData,fs_windowsize=200000,fs_limit=0.05,fs_exact=FALSE){
+ fs_allPos<-internalData$V2
+ fs_allIndices<-1:length(fs_allPos)
+ fs_chrStart<-min(fs_allPos)
+ fs_chrEnd<-max(fs_allPos)
+ fs_ret<-sapply(fs_allIndices, function(fs_curIndex){
+  fs_curPos<-internalData$V2[fs_curIndex]
+  fs_start<-max(fs_chrStart,fs_curPos-fs_windowsize/2)
+  fs_end<- fs_start + fs_windowsize
+  if(fs_end>fs_chrEnd){
+   fs_start<-max(fs_chrStart,fs_end-fs_windowsize)
+  }
+  fs_data<- internalData[fs_allPos>=fs_start & fs_allPos<=fs_end & fs_allPos != fs_curPos,]
+  fs_size<- length(fs_data$V1)
+  if(fs_size>3){
+   assign("dataset_shoremapmle",fs_data,".GlobalEnv")
+   fs_p.win<- samplefreqs(1,fs_size)
+   if(fs_exact){
+    sink("/dev/null");
+    multinomial.test(c(internalData[fs_curIndex,3:5],recursive=TRUE),prob=fs_p.win)$p.value
+    sink();
+   }else{
+    fs_p1<-fs_p.win[3]
+    fs_p2<-fs_p.win[1]/sum(fs_p.win[1:2])
+    fs_p2Alt<-fs_p.win[3]/sum(fs_p.win[1:2])
+    x<-c(internalData[fs_curIndex,3:5],recursive=TRUE)
+    pbinom(x[3],size=sum(x),prob=fs_p1)*ifelse(x[1]<x[2],pbinom(x[1],size=sum(x[1:2]),prob=fs_p2),pbinom(x[2],size=sum(x[1:2]),prob=fs_p2Alt))
+   }
+  }else{
+   1
+  }
+ })
+ p.adjust(fs_ret,method="holm")>=fs_limit
 }
 
 filterSampling <- function(internalData,fs_windowsize=200000,fs_limit=0.05,fs_exact=FALSE){
