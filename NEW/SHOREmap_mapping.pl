@@ -291,14 +291,16 @@ sub read_referror {
 
 		# Check consistency
                 if (not defined($CHR2SIZE{$chr})) {
-                        die("Wrong chromosome annoation in referror file: \"$chr\"\nDoes not match entries in chromosome sizes file.\n");
-                }
+			print STDERR "RefError file. Ignoring entry. \"$chr\" does not match entries in chromosome sizes file.\n"
+		}
+		else {
 
-                if ($pos =~ m/[^0-9.]/ ) { die("Referror position not numeric ($pos).\n"); }
+	                if ($pos =~ m/[^0-9.]/ ) { die("Referror position not numeric ($pos).\n"); }
 
-		if ($CHR2SIZE{$chr} < $pos) { die("Referror position out of chromosome bounds ($chr:$pos).\n");}
+			if ($CHR2SIZE{$chr} < $pos) { die("Referror position out of chromosome bounds ($chr:$pos).\n");}
 
-                $REFERROR{$a[0]."#".$a[1]} = 1;
+                	$REFERROR{$a[0]."#".$a[1]} = 1;
+		}
        	}
         close FILE;
        	print STDERR "Finished reading referror file\n" if $verbose == 1;
@@ -330,22 +332,25 @@ sub read_marker {
 
 		# Check for consistency
 		if (not defined($CHR2SIZE{$chr})) {
-			die("Marker reading: Wrong chromosome annoation in marker file: \"$chr\" Marker format is $marker_format.\nDoes not match entries in chromosome sizes file.\n");
+			#die("Marker reading: Wrong chromosome annoation in marker file: \"$chr\" Marker format is $marker_format.\nDoes not match entries in chromosome sizes file.\n");
+			print STDERR "Marker file. Ignoring entry. \"$chr\" does not match entries in chromosome sizes file.\n"
 		}
+		else {
 
-		if ($pos =~ m/[^0-9.]/ ) { die("Marker position not numeric ($pos).\n"); }
+			if ($pos =~ m/[^0-9.]/ ) { die("Marker position not numeric ($pos).\n"); }
 
-		if ($CHR2SIZE{$chr} < $pos) { die("Marker position out of chromosome bounds ($chr:$pos).\n");}
+			if ($CHR2SIZE{$chr} < $pos) { die("Marker position out of chromosome bounds ($chr:$pos).\n");}
 
-		# Store
-		if (not defined($REFERROR{$chr."#".$pos})) {
-			if ($background2 == 0) {
-				$ALLELE1{$chr."#".$pos} = $allele1;
-        	                $ALLELE2{$chr."#".$pos} = $allele2;
-			}
-			else {
-				$ALLELE1{$chr."#".$pos} = $allele2;
-                                $ALLELE2{$chr."#".$pos} = $allele1;
+			# Store
+			if (not defined($REFERROR{$chr."#".$pos})) {
+				if ($background2 == 0) {
+					$ALLELE1{$chr."#".$pos} = $allele1;
+        	                	$ALLELE2{$chr."#".$pos} = $allele2;
+				}
+				else {
+					$ALLELE1{$chr."#".$pos} = $allele2;
+                        	        $ALLELE2{$chr."#".$pos} = $allele1;
+				}
 			}
                 }
 	
