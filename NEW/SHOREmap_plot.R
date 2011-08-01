@@ -19,6 +19,7 @@ outputpath<-args[12]
 filterOutliers<-args[13] # size of window around marker for outlier assessment
 filterPValue<-args[14] # p-value for outlier removal
 conf_level<-args[15]
+runid<-args[16]
 
 ##########################################
 # Set up zoom interval if it exists
@@ -73,7 +74,7 @@ for (chr in 1:(length(chrsize$V1))) {
 			# Set up plot data
 			freq = data$V3[data$V1[]==chrname] / ( data$V3[data$V1[]==chrname] + data$V4[data$V1[]==chrname] )
 
-			if (winsize == 1) {
+			if (winsize == 1 && conf_level != 2) {
 				# Calc confidence interval
         		        ciData<- data[data[,1]==chrname,]
                 		ci_chromosome<-ciData[,1]
@@ -112,10 +113,10 @@ for (chr in 1:(length(chrsize$V1))) {
 			}
 	
 			if (winsize == 1) { 
-				points(data$V2[data$V1[]==chrname], freq, ylim=c(y_min, y_max+0.2), col=ifelse(ci_filtered,"red", ifelse((length(windowsizes$V1) == 1), "black", "grey")), xlim=c(x_min, x_max), pch=20)
+				points(data$V2[data$V1[]==chrname], freq, ylim=c(y_min, y_max+0.2), col=ifelse(conf_level!=2 && ci_filtered,"red", ifelse((length(windowsizes$V1) == 1), "black", "grey")), xlim=c(x_min, x_max), pch=20)
 		
 				# Plot confidence interval
-				if (ci[3, 1] <= 1) {
+				if (conf_level != 2 && ci[3, 1] <= 1) {
                				for (ci_i in 1:(length(ci[1,]))) {
 				
 						rect(ci[1, ci_i], y_max+0.02, ci[2, ci_i], y_max+0.06, col="orange", border="orange")
@@ -136,9 +137,19 @@ for (chr in 1:(length(chrsize$V1))) {
 				# debug:
 				# Stig:
 				#abline(v=16702262, col="limegreen")
-
 				# Vini:
-				abline(v=18816001, col="limegreen")
+#				abline(v=18816001, col="limegreen")
+				# Qtl:
+				if(file.exists(paste("Sim.",runid,".qtl.txt", sep="")) {
+					qtl<-read.table(paste("Sim.",runid,".qtl.txt", sep=""), header=T)
+					for (q in 1:(length(qtl$qtl_id))) {
+						if (qtl$chr[i] == chrname) {
+							abline(v=qtl$pos[i])
+							text(c((y_min+(y_max-y_min)/2)), c(qtl$pos[i]), labels=c(paste(qtl$effect_p1, qtl$effect_p2, sep=" ")))
+						}
+					}
+				}
+
 
 				labels=c(1, seq(ls, chrsize$V2[chrsize$V1[]==chrname], by=ls), chrsize$V2[chrsize$V1[]==chrname])
 				axis(1, label=labels, at=labels, col="lightgrey")
