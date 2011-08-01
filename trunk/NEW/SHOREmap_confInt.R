@@ -12,7 +12,7 @@ ShoreMap.confint <- function(chromosome,positions,background_count,foreground_co
  foreground_frequency<-as.numeric(foreground_frequency)
  internalData<- cbind(chromosome,positions,foreground_count,background_count,error_count)
  internalData<- internalData[rowSums(internalData[,3:5])>0,]
- print(paste("analysing chr ",chromosome[1],", with ",length(chromosome)," (",length(internalData$V1),") markers for equality to ",foreground_frequency,"(",typeof(foreground_frequency),")",sep=""))
+ print(paste("Analysing chr ",chromosome[1],", with ",length(chromosome)," (",length(internalData$V1),") markers for equality to ",foreground_frequency,"(",typeof(foreground_frequency),")",sep=""))
  assign("storage_shoremapmle",matrix(c(-1,-1,-1),nrow=1),".GlobalEnv")
 # assign("savedCalc_shoremapmle",0,".GlobalEnv") 
  #apply filtering here:
@@ -30,15 +30,15 @@ ShoreMap.confint <- function(chromosome,positions,background_count,foreground_co
  minWindow<-max(10,floor(length(internalData[,2])/1000))
  bestsize<- ceiling((max(table(sapply(2:length(freqs),function(x) if(freqs[x]==freqs[x-1]){i_shoremapmle}else{assign("i_shoremapmle",i_shoremapmle+1,".GlobalEnv");i_shoremapmle})))+1)/5)*5
  bestsize<-max(bestsize,minWindow)
- print(paste("bestsize:",bestsize))
+ print(paste("Bestsize:",bestsize))
  if(bestsize<length(dataset_shoremapmle[,1])){
   ps_global<-sapply(1:(length(dataset_shoremapmle[,1])-bestsize+1),function(x) {cur_freqs<-freqs[x:(x+bestsize-1)]; p<-tryCatch(t.test(cur_freqs,mu=foreground_frequency)$p.value,error=function(err) { -616});ifelse(is.na(p),-616,p)})
-  print(paste("finding peaks.. best p-value:",max(ps_global)))
+  print(paste("Finding peaks.. best p-value:",max(ps_global)))
   res<- identify_peaks(1,length(internalData[,2]),foreground_frequency,level,minWindow,ps_global,bestsize,recurse,forceInclude,allowAdjustment)
 # rm(dataset_shoremapmle)
 # rm(storage_shoremapmle)
   ci<-apply(res,1,function(x) t(c(start=ifelse(x[3]<0,internalData[x[1],2],0), stop=ifelse(x[3]<0,internalData[x[1]+x[2]-1,2],0),p.value=ifelse(x[3]<0,-1*(x[3]+x[2]),x[3]))))
-  print("found intervals:")
+  print("Found interval:")
   apply(ci,2,function(x) print(paste(x[1],"-",x[2])))
   list(confidenceInterval=ci,excluded=filtered)
  }else{

@@ -45,6 +45,8 @@ my $referror;
 my $background2;
 my $verbose;
 
+my $runid;
+
 ### Additional global variables ############################################################## 
 
 my %CHR2SIZE = ();
@@ -161,7 +163,7 @@ for (my $w = 0; $w < @window_sizes; $w++) {
 
 
 my $pdffile = "$out_folder/SHOREmap.pdf";
-my $cmd = "R --slave --vanilla --args $expect $chrsizes $pdffile $out_folder/SHOREmap.zoom_region.txt $out_folder/SHOREmap.window_sizes.txt $window_step $FindBin::Bin $out_folder $outlier_window_size $outlier_pvalue $confidence < ".$FindBin::Bin."/SHOREmap_plot.R"; # 2> /dev/null";
+my $cmd = "R --slave --vanilla --args $expect $chrsizes $pdffile $out_folder/SHOREmap.zoom_region.txt $out_folder/SHOREmap.window_sizes.txt $window_step $FindBin::Bin $out_folder $outlier_window_size $outlier_pvalue $confidence $runid < ".$FindBin::Bin."/SHOREmap_plot.R"; # 2> /dev/null";
 print STDERR $cmd, "\n" if $verbose == 1;
 system($cmd);
 
@@ -214,7 +216,7 @@ sub read_allele_counts {
 			$chromosome = $a[0];
 			$position = $a[1];
 		}
-		elsif ($consensus_format eq "vcf") {
+		elsif ($consensus_format eq "tab") {
 			$chromosome = $a[0]; # DUMMY
 			$position = $a[1];
 		}
@@ -260,13 +262,13 @@ sub read_allele_counts {
 				$count_higher_allele = $count_allele1 > $count_allele2 ? $count_allele1 : $count_allele2;
 
 			}
-			elsif ($consensus_format eq "vcf") {
-				# TODO
-                	        #$chromosome = $a[0];
-                        	#$position = $a[1];
-				#my @b = split ";", $a[7];
+			elsif ($consensus_format eq "tab") {
+                	        $chromosome = $a[0];
+                        	$position = $a[1];
+                        	$count_allele1 = $a[2];
+                        	$count_allele2 = $a[3];
+                        	$count_error = $a[4];
 				
-	                        #$coverage = $a[3];
 			}
 
 			if (	$coverage >= $filter_min_coverage and
@@ -455,7 +457,7 @@ Mandatory:
                                  \"vcf\" (default: \"shore\")
 --consen                STRING   Consensus file 
 --consen-format         STRING   Consensus file format, \"shore\" 
-                                 or \"vcf\" (default: \"shore\")
+                                 or \"tab\" (default: \"shore\")
 --window-size           STRING   Smoothed visulization
                                  (default: \"25000\")
 
@@ -483,6 +485,9 @@ Zooming:
 Optional:
 --referrors             STRING   Reference errors file
 -background2                     Mutation in second parent
+-no-interval                     Switch of confidence interval
+                                 calculation
+--runid                 INT      Debug
 -verbose                         Be talkative
 
 See documentation for file formats.
@@ -516,12 +521,14 @@ See documentation for file formats.
 	$background2 = 0;
 	$verbose = 0;	
 
+	$runid = 1;
+
 	if (@ARGV+0 == 0) {
 		print @usage, "\n";
 		exit(0);
 	}
 
-        GetOptions(\%CMD, "target=f", "conf=f", "chrsizes=s", "folder=s", "marker=s", "marker-format=s", "consen=s", "consen-format=s", "min-marker=i", "min-coverage=i", "filter-errors", "chromosome=i", "begin=i", "end=i", "minfreq=f", "maxfreq=f", "verbose", "background2", "referrors=s", "outlier-window-size=i", "outlier-pvalue=f", "window-size=s"); #, "window-step=i");
+        GetOptions(\%CMD, "target=f", "conf=f", "chrsizes=s", "folder=s", "marker=s", "marker-format=s", "consen=s", "consen-format=s", "min-marker=i", "min-coverage=i", "filter-errors", "chromosome=i", "begin=i", "end=i", "minfreq=f", "maxfreq=f", "verbose", "background2", "referrors=s", "outlier-window-size=i", "outlier-pvalue=f", "window-size=s", "no-interval", "runid=i"); #, "window-step=i");
 
         die("Please specify target allele frequency\n") unless defined($CMD{target});
         die("Please specify chromosome sizes file\n") unless defined($CMD{chrsizes});
@@ -547,6 +554,10 @@ See documentation for file formats.
 			die ("Confidence level needs to be larger 0 and smaller 1.\n");
 		}
         }
+
+	if (defined($CMD{"no-interval"})) {
+		$confidence = 2;
+	} 
 
 	$chrsizes = $CMD{chrsizes};
 	if (!-e $chrsizes) {
@@ -588,8 +599,8 @@ See documentation for file formats.
 
 	if (defined($CMD{"consen-format"})) {
                 $consensus_format = $CMD{"consen-format"};
-                if ($marker_format ne "shore" and $marker_format ne "vcf") {
-                        die("marker-format has to be \"shore\" or \"vcf\"\n");
+                if ($marker_format ne "shore" and $marker_format ne "tab") {
+                        die("marker-format has to be \"shore\" or \"tab\"\n");
                 }
         }
 
@@ -670,6 +681,10 @@ See documentation for file formats.
 
 	if (defined($CMD{verbose})) {
                 $verbose = 1;
+        }
+
+        if (defined($CMD{"runid"})) {
+                $runid = $CMD{"runid"};
         }
 
 	####################################################################################
