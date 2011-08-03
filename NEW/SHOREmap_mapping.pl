@@ -572,7 +572,7 @@ See documentation for file formats.
                 if (!-e $referror) {
                         die("File not found: $referror\n");
                 }
-		read_referrors();
+		read_referror();
         }
 	
 	$out_folder = $CMD{folder};
