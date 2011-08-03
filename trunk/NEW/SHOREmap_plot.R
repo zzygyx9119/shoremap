@@ -140,12 +140,13 @@ for (chr in 1:(length(chrsize$V1))) {
 				# Vini:
 #				abline(v=18816001, col="limegreen")
 				# Qtl:
-				if(file.exists(paste("Sim.",runid,".qtl.txt", sep="")) {
-					qtl<-read.table(paste("Sim.",runid,".qtl.txt", sep=""), header=T)
-					for (q in 1:(length(qtl$qtl_id))) {
-						if (qtl$chr[i] == chrname) {
-							abline(v=qtl$pos[i])
-							text(c((y_min+(y_max-y_min)/2)), c(qtl$pos[i]), labels=c(paste(qtl$effect_p1, qtl$effect_p2, sep=" ")))
+				if(file.exists(paste("Sim.",runid,".qtl.txt", sep=""))) {
+					qtl<-read.table(paste("Sim.",runid,".qtl.txt", sep=""), header=F)
+					for (q in 1:(length(qtl$V3))) {
+						if (qtl$V3[q] == chrname) {
+							abline(v=qtl$V4[q])
+							#text(c(qtl$V4[q]), c((y_min+(y_max-y_min)/2)), labels=c(paste(round(qtl$V5), round(qtl$V6), sep=" ")))
+							text(c(qtl$V4[q]), c((y_min+(y_max-y_min)/2)), labels=c(paste(round(qtl$V5[q]), round(qtl$V6[q]), sep=" ")), col="green")
 						}
 					}
 				}

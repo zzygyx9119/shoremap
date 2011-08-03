@@ -543,7 +543,9 @@ See documentation for file formats.
                 $background2 = 1;
         }
 
-	$expect = $CMD{target};
+	if (defined($CMD{target})) {
+		$expect = $CMD{target};
+	}
 	if (!($expect >= 0 and $expect <= 1.0)) {
 		die("target must be between 0 and 1.\n");
 	}
