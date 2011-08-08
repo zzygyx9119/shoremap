@@ -1,3 +1,39 @@
+#prep data
+hs<-read.table("high.seq")
+ls<-read.table("low.seq")
+##merge
+hs.freq<- apply(hs,1,function(x) x[3]/sum(x[3:5]))
+ls.freq<- apply(ls,1,function(x) x[3]/sum(x[3:5]))
+data<- cbind(hs[,1:2],hs.freq,hs[,3:5],ls.freq,ls[,3:5])
+#fisher test
+p<-apply(data,1,function(x) fisher.test(matrix(as.numeric(x[c(4,5,8,9)]),nrow=2))$p.value)
+lp<- -log(p)
+
+qtls<-data.frame(index=c(62150,125541,245420,283042,327406),chr=c(1,2,4,5,5))
+
+for (chr in 1:5)
+
+for (chr in 2:5){
+png(paste("summary_chr",chr,".png",sep=""))
+x<-which(data[,1]==chr)
+y.loess<-loess(y~x,span=0.75,data.frame(x=data[x,2],y=lp[x]))
+y.predict<-predict(y.loess,data.frame(x=data[x,2]))
+
+
+#plot(data[x,2],data[x,3],col="grey",type="l",yaxt="n",ylab="")
+#axis(4)
+#mtext("frequency",side=4,line=3)
+#lines(data[x,2],data[x,7],col="black",type="l")
+#par(new=T)
+plot(data[x,2],lp[x],xlab="pos",ylab="log(p)",main=paste("chr",chr))
+lines(data[x,2],y.predict,col="red",type="l")
+for(index in qtls[qtls$chr==chr,1]){
+ abline(v=data[index,2],col="green")
+}
+dev.off()
+
+}
+
 sapply(1:length(data[,1]),mult_one_fun,r)
 
 assign("shoremap_qtlmem",matrix(c(-1,-1,-1,-1),nrow=1),".GlobalEnv")
