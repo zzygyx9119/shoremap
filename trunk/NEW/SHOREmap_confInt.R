@@ -26,7 +26,7 @@ ShoreMap.confint <- function(chromosome,positions, background_count, foreground_
   internalData<- internalData[f,]
  }
  assign("dataset_shoremapmle",internalData,".GlobalEnv")
- freqs<-apply(internalData,1,function(x) x[3]/sum(x[3:5]))
+ freqs<-internalData[,3]/rowSums(internalData[,3:5])
  assign("i_shoremapmle",0,".GlobalEnv")
  minWindow<-max(10,floor(length(internalData[,2])/10000))
  bestsize<- ceiling((max(table(sapply(2:length(freqs),function(x) if(freqs[x]==freqs[x-1]){i_shoremapmle}else{assign("i_shoremapmle",i_shoremapmle+1,".GlobalEnv");i_shoremapmle})))+1)/5)*5
@@ -41,7 +41,7 @@ ShoreMap.confint <- function(chromosome,positions, background_count, foreground_
   }else if(max(ps_global)>0){
    sapply(maxpI,function(x) print(paste("   At: ",internalData[x,2]," bp",sep="")))
   }
-  res<- identify_peaks(1,length(internalData[,2]),foreground_frequency,level,minWindow,ps_global,bestsize,recurse,forceInclude,allowAdjustment)
+  res<- identify_peaks(1,length(internalData[,2]),foreground_frequency,level,minWindow,ps_global,bestsize,recurse,forceInclude, allowAdjustment)
 # rm(dataset_shoremapmle)
 # rm(storage_shoremapmle)
   ci<-apply(res,1,function(x) t(c(start=ifelse(x[3]<0,internalData[x[1],2],0), stop=ifelse(x[3]<0,internalData[x[1]+x[2]-1,2],0),p.value=ifelse(x[3]<0,-1*(x[3]+x[2]),x[3]))))
