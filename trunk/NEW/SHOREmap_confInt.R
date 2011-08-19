@@ -46,7 +46,10 @@ ShoreMap.confint <- function(chromosome,positions, background_count, foreground_
 # rm(storage_shoremapmle)
   ci<-apply(res,1,function(x) t(c(start=ifelse(x[3]<0,internalData[x[1],2],0), stop=ifelse(x[3]<0,internalData[x[1]+x[2]-1,2],0),p.value=ifelse(x[3]<0,-1*(x[3]+x[2]),x[3]))))
   print("Found interval:")
-  apply(ci,2,function(x) print(paste(x[1],"-",x[2])))
+  for(i in 1:length(ci[1,])){
+   print(paste(ci[1,i],"-",ci[2,i]))
+  }
+#  apply(ci,2,function(x) print(paste(x[1],"-",x[2])))
   list(confidenceInterval=ci,excluded=filtered)
  }else{
   #too few markers
@@ -54,40 +57,7 @@ ShoreMap.confint <- function(chromosome,positions, background_count, foreground_
  }
 }
 
-filterSamplingv2 <- function(internalData,fs_windowsize=200000,fs_limit=0.05,fs_exact=FALSE){
- fs_allPos<-internalData$V2
- fs_allIndices<-1:length(fs_allPos)
- fs_chrStart<-min(fs_allPos)
- fs_chrEnd<-max(fs_allPos)
- fs_ret<-sapply(fs_allIndices, function(fs_curIndex){
-  fs_curPos<-internalData$V2[fs_curIndex]
-  fs_start<-max(fs_chrStart,fs_curPos-fs_windowsize/2)
-  fs_end<- fs_start + fs_windowsize
-  if(fs_end>fs_chrEnd){
-   fs_start<-max(fs_chrStart,fs_end-fs_windowsize)
-  }
-  fs_data<- internalData[fs_allPos>=fs_start & fs_allPos<=fs_end & fs_allPos != fs_curPos,]
-  fs_size<- length(fs_data$V1)
-  if(fs_size>3){
-   assign("dataset_shoremapmle",fs_data,".GlobalEnv")
-   fs_p.win<- samplefreqs(1,fs_size)
-   if(fs_exact){
-    sink("/dev/null");
-    multinomial.test(c(internalData[fs_curIndex,3:5],recursive=TRUE),prob=fs_p.win)$p.value
-    sink();
-   }else{
-    fs_p1<-fs_p.win[3]
-    fs_p2<-fs_p.win[1]/sum(fs_p.win[1:2])
-    fs_p2Alt<-fs_p.win[3]/sum(fs_p.win[1:2])
-    x<-c(internalData[fs_curIndex,3:5],recursive=TRUE)
-    pbinom(x[3],size=sum(x),prob=fs_p1)*ifelse(x[1]<x[2],pbinom(x[1],size=sum(x[1:2]),prob=fs_p2),pbinom(x[2],size=sum(x[1:2]),prob=fs_p2Alt))
-   }
-  }else{
-   1
-  }
- })
- p.adjust(fs_ret,method="holm")>=fs_limit
-}
+
 
 filterSampling <- function(internalData,fs_windowsize=200000,fs_limit=0.05,fs_exact=FALSE){
  assign("dataset_shoremapmle",internalData,".GlobalEnv")
@@ -379,4 +349,40 @@ extend <- function(beststart,bestsize=10,level=0.99,freq=1,indexL=0,indexH=Inf,m
   nextTest<- optim(fn=maxConf,method="Nelder-Mead",par=c(beststart,bestsize),control=list(ndeps=c(1,1),maxit=100),level=level,freq=freq,indexL=max(indexL,beststart-10*minWindow),indexH=min(indexH,beststart+bestsize+10*minWindow),minWindow=minWindow,include=inclusion)
  }
  t(as.matrix(c(beststart,bestsize,bestvalue)))
+}
+
+#not better
+filterSamplingv2 <- function(internalData,fs_windowsize=200000,fs_limit=0.05,fs_exact=FALSE){
+ fs_allPos<-internalData$V2
+ fs_allIndices<-1:length(fs_allPos)
+ fs_chrStart<-min(fs_allPos)
+ fs_chrEnd<-max(fs_allPos)
+ fs_ret<-sapply(fs_allIndices, function(fs_curIndex){
+  fs_curPos<-internalData$V2[fs_curIndex]
+  fs_start<-max(fs_chrStart,fs_curPos-fs_windowsize/2)
+  fs_end<- fs_start + fs_windowsize
+  if(fs_end>fs_chrEnd){
+   fs_start<-max(fs_chrStart,fs_end-fs_windowsize)
+  }
+  fs_data<- internalData[fs_allPos>=fs_start & fs_allPos<=fs_end & fs_allPos != fs_curPos,]
+  fs_size<- length(fs_data$V1)
+  if(fs_size>3){
+   assign("dataset_shoremapmle",fs_data,".GlobalEnv")
+   fs_p.win<- samplefreqs(1,fs_size)
+   if(fs_exact){
+    sink("/dev/null");
+    multinomial.test(c(internalData[fs_curIndex,3:5],recursive=TRUE),prob=fs_p.win)$p.value
+    sink();
+   }else{
+    fs_p1<-fs_p.win[3]
+    fs_p2<-fs_p.win[1]/sum(fs_p.win[1:2])
+    fs_p2Alt<-fs_p.win[3]/sum(fs_p.win[1:2])
+    x<-c(internalData[fs_curIndex,3:5],recursive=TRUE)
+    pbinom(x[3],size=sum(x),prob=fs_p1)*ifelse(x[1]<x[2],pbinom(x[1],size=sum(x[1:2]),prob=fs_p2),pbinom(x[2],size=sum(x[1:2]),prob=fs_p2Alt))
+   }
+  }else{
+   1
+  }
+ })
+ p.adjust(fs_ret,method="holm")>=fs_limit
 }
