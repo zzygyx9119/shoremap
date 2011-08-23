@@ -85,7 +85,7 @@ for (chr in 1:(length(chrsize$V1))) {
         	        	ci_result<-ShoreMap.confint(ci_chromosome, ci_positions, ci_background_count, ci_forground_count, ci_error_count, foreground_frequency=target, level=conf_level, recurse=F, forceInclude=T, allowAdjustment=0.05,filterOutliers=filterOutliers, filterPValue=filterPValue)
 
 	        	        ci<-ci_result$confidenceInterval
-        	                ci_filtered <- ci_positions %in% ci_result$excluded
+        	                ci_filtered <- ci_positions %in% ci_result$excluded 
 			}
 
 
@@ -113,7 +113,7 @@ for (chr in 1:(length(chrsize$V1))) {
 			}
 	
 			if (winsize == 1) { 
-				points(data$V2[data$V1[]==chrname], freq, ylim=c(y_min, y_max+0.2), col=ifelse(conf_level!=2 && ci_filtered,"red", ifelse((length(windowsizes$V1) == 1), "black", "grey")), xlim=c(x_min, x_max), pch=20)
+				points(data$V2[data$V1[]==chrname], freq, ylim=c(y_min, y_max+0.2), col=ifelse(conf_level!=2 & ci_filtered,"red", ifelse((length(windowsizes$V1) == 1), "black", "grey")), xlim=c(x_min, x_max), pch=20)
 		
 				# Plot confidence interval
 				if (conf_level != 2 && ci[3, 1] <= 1) {
