@@ -83,11 +83,11 @@ filterSamplingv3 <-function(internalData,fs_windowsize=200000,fs_limit=0.05,fs_e
   if(fs_end>fs_chrEnd){
    fs_start<-max(fs_chrStart,fs_end-fs_windowsize)
   }
-  fs_data<- internalData[fs_allPos>=fs_start & fs_allPos<=fs_end & fs_allPos != fs_curPos & !fs_filter,]
-  fs_size<- length(fs_data$V1)
+  fs_toUse<-fs_allPos>=fs_start & fs_allPos<=fs_end & fs_allPos != fs_curPos & !fs_filter  
+  fs_size<- sum(fs_toUse)
   fs_p<-1
   if(fs_size>3){
-   assign("dataset_shoremapmle",fs_data,".GlobalEnv")
+   assign("dataset_shoremapmle",internalData[fs_toUse,],".GlobalEnv")
    fs_p.win<- samplefreqs(1,fs_size)
 #   fs_p.win<-colSums(fs_data[,3:5])/sum(fs_data[,3:5])
    if(fs_exact){
@@ -104,7 +104,7 @@ filterSamplingv3 <-function(internalData,fs_windowsize=200000,fs_limit=0.05,fs_e
   fs_filter[fs_curIndex]<- p.adjust(fs_p,method="holm",n=fs_n)<=fs_limit
   fs_tested[fs_curIndex]<-TRUE
  }
- fs_filter
+ !fs_filter
 }
 
 filterSampling <- function(internalData,fs_windowsize=200000,fs_limit=0.05,fs_exact=FALSE){
@@ -157,7 +157,7 @@ identify_peaks <- function(indexL,indexH,frequency,level,minWindow,ps_global,bes
    while(length(starts)>0){
     beststart<- starts[ceiling(length(starts)/2)]
     #see if the frequency needs adjustment
-    newFreq<-multll(beststart,bestsize)@coef[1]
+    newFreq<-multll(beststart,bestsize)$coef[1]
     if(abs(frequency-newFreq)<allowAdjustment){
      print(paste("The goal frequency was adjusted from ",frequency," to ",newFreq,", which is the estimated frequency in the preliminary interval",sep=""))
      frequency<-newFreq
@@ -214,7 +214,7 @@ identify_peaks <- function(indexL,indexH,frequency,level,minWindow,ps_global,bes
 loglikelihood_mult <- function(llm_P1=0.5,llm_err=0.01,llm_index=0,llm_size=0){
  #the loglikelihood function. Returns 110000 for unvalid p-values
 # if(P1<0 || P1>1 || err<1e-2 || err>1) {
- if(is.na(llm_P1) || is.na(llm_err)){
+ if(is.na(llm_P1) || is.na(llm_err) || llm_size<0){
   220000
  } else if(llm_P1<0 || llm_P1>1 || llm_err<0 || llm_err>1) {
   110000
@@ -231,33 +231,20 @@ loglikelihood_mult <- function(llm_P1=0.5,llm_err=0.01,llm_index=0,llm_size=0){
 }
 
 samplefreqs <- function(sf_startPos,sf_size) {
-# curIndices<- sf_startPos:(sf_startPos+sf_size-1)
-# colSums(dataset_shoremapmle[curIndices,3:5])/sum(dataset_shoremapmle[curIndices,3:5])
-
-
- sf_esti<-multll(sf_startPos,sf_size)
- sf_P1<-sf_esti@coef[1]
- sf_err<-sf_esti@coef[2]
- sf_p1<- sf_P1*(1-4*sf_err/3)+sf_err/3
- sf_pe<- 2*sf_err/3
- sf_p2<- 1-sf_p1-sf_pe
- c(sf_p1,sf_p2,sf_pe)
+ curIndices<- sf_startPos:(sf_startPos+sf_size-1)
+ colSums(dataset_shoremapmle[curIndices,3:5])/sum(dataset_shoremapmle[curIndices,3:5])
 }
 
 multll<- function(ml_x,ml_size=10) {
- ml_P1est<-0.5
- ml_errEst<-0.0001
- if(ml_x>0 && ml_x+ml_size<length(dataset_shoremapmle)){
-  ml_curIndices<-ml_x:(ml_x+ml_size-1)
-  ml_errEst<-3*sum(dataset_shoremapmle[ml_curIndices,5])/sum(dataset_shoremapmle[ml_curIndices,5])/2
-  ml_P1est<-(sum(dataset_shoremapmle[ml_curIndices,3])/sum(dataset_shoremapmle[ml_curIndices,3:5])-ml_errEst)/(1-4*ml_errEst/3)
- }
-  #a wrapper for the MLE test
- mle2(loglikelihood_mult,method="Nelder-Mead",start=list(llm_P1=ml_P1est,llm_err=ml_errEst),fixed=list(llm_index=ml_x,llm_size=ml_size))
+ p.win<-samplefreqs(ml_x,ml_size)
+ ml_errEst<-3*p.win[3]/2
+ ml_P1est<-(p.win[1]-ml_errEst/3)/(1-4*ml_errEst/3)
+ ml_min<-loglikelihood_mult(llm_P1=ml_P1est,llm_err=ml_errEst,llm_index=ml_x,llm_size=ml_size)
+ list(coef=c(ml_P1est,ml_errEst),min=ml_min)
 }
 
 restrictedModel <- function(P1,x,size) {
- rm_errEst<-0.0001
+ rM_errEst<-0.0001
  if(x>0&&x+size<length(dataset_shoremapmle)){
   rM_curIndices<-x:(x+size-1)
   rM_errEst<-3*sum(dataset_shoremapmle[rM_curIndices,5])/sum(dataset_shoremapmle[rM_curIndices,3:5])/2
@@ -293,12 +280,12 @@ maxConf<-function(x,level=0.95,freq=0,indexL=0,indexH=Inf,minWindow=10,include=-
    #if not in storage, calculate
    fit<-multll(start,size)
 #   fit<- restrictedModel(freq-1/1000,start,size)
-   if(fit@min>100000){
-    res<-fit@min
+   if(fit$min>100000){
+    res<-fit$min
    }else{
     restrictedFit<- restrictedModel(freq,start,size)
 #    p<- pchisq(-2*(fit@min-restrictedFit@min),1)
-    p<- pchisq(-2*(loglikelihood_mult(fit@coef[1],fit@coef[2],start,size)-loglikelihood_mult(freq,restrictedFit@coef[1],start,size)),1)
+    p<- pchisq(-2*(fit$min-restrictedFit@min),1)
     if(p<=level){
      res<- -size-p
     }else{
