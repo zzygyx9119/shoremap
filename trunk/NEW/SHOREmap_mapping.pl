@@ -35,6 +35,8 @@ my $filter_errors;
 my $outlier_window_size;
 my $outlier_pvalue;
 
+my $misphenotyped;
+
 my $reg_chromosome;
 my $reg_begin;
 my $reg_end;
@@ -80,7 +82,7 @@ for (my $w = 0; $w < @window_sizes; $w++) {
 	my $outputfile = $out_folder."/SHOREmap.winsize".$window_size.".txt";
         open OUT, "> ".$outputfile or die "Cannot open outputfile\n";
 
-	foreach my $chr (sort {$a <=> $b} keys %CHR2POS2ALLELE1_COUNT) {
+	foreach my $chr (sort {$a cmp $b} keys %CHR2POS2ALLELE1_COUNT) {
 	
 		my $last_report = 0;
 
@@ -163,7 +165,7 @@ for (my $w = 0; $w < @window_sizes; $w++) {
 
 
 my $pdffile = "$out_folder/SHOREmap.pdf";
-my $cmd = "R --slave --vanilla --args $expect $chrsizes $pdffile $out_folder/SHOREmap.zoom_region.txt $out_folder/SHOREmap.window_sizes.txt $window_step $FindBin::Bin $out_folder $outlier_window_size $outlier_pvalue $confidence $runid < ".$FindBin::Bin."/SHOREmap_plot.R"; # 2> /dev/null";
+my $cmd = "R --slave --vanilla --args $expect $chrsizes $pdffile $out_folder/SHOREmap.zoom_region.txt $out_folder/SHOREmap.window_sizes.txt $window_step $FindBin::Bin $out_folder $outlier_window_size $outlier_pvalue $confidence $misphenotyped $runid < ".$FindBin::Bin."/SHOREmap_plot.R"; # 2> /dev/null";
 print STDERR $cmd, "\n" if $verbose == 1;
 system($cmd);
 
@@ -380,7 +382,14 @@ sub write_log {
 
 	open FILE, ">$out_folder/SHOREmap.log";
 
-	print FILE "# $0 --target $expect --conf $confidence --chrsizes $chrsizes --folder $out_folder --marker $marker --marker-format $marker_format --consen $consensus --consen-format $consensus_format --window-size $window_size_string "; #,join(",",@window_sizes);, " --window-step $window_step ";
+	print FILE "# $0 --target $expect --chrsizes $chrsizes --folder $out_folder --marker $marker --marker-format $marker_format --consen $consensus --consen-format $consensus_format --window-size $window_size_string --mis-phenotyped $misphenotyped "; #,join(",",@window_sizes);, " --window-step $window_step ";
+
+	if ($confidence == 2) {
+		print FILE "-no-interval ";
+	}
+	else {
+		print FILE "--conf $confidence ";
+	}
 
 	if ($filter_min_marker > 0) {
 		print FILE "--min-marker $filter_min_marker ";
@@ -475,6 +484,11 @@ Filter:
 --outlier-pvalue        DOUBLE   p-value used for outlier
                                  removal
 
+Phenotyping:
+--mis-phenotyped        DOUBLE   Degree of putatively
+                                 mis-scored plants
+                                 (default: 0.00)
+
 Zooming:
 --chromosome            INT      Zoom to chromosome ..
 --begin                 INT      .. from here ..
@@ -484,10 +498,10 @@ Zooming:
 
 Optional:
 --referrors             STRING   Reference errors file
+--runid                 INT      Debug
 -background2                     Mutation in second parent
 -no-interval                     Switch of confidence interval
                                  calculation
---runid                 INT      Debug
 -verbose                         Be talkative
 
 See documentation for file formats.
@@ -511,6 +525,8 @@ See documentation for file formats.
 	$outlier_window_size = 200000;
 	$outlier_pvalue = 0.05;
 	
+	$misphenotyped = 0.00;
+
 	$reg_chromosome = "";
 	$reg_begin = -1;
 	$reg_end = -1;
@@ -528,9 +544,8 @@ See documentation for file formats.
 		exit(0);
 	}
 
-        GetOptions(\%CMD, "target=f", "conf=f", "chrsizes=s", "folder=s", "marker=s", "marker-format=s", "consen=s", "consen-format=s", "min-marker=i", "min-coverage=i", "filter-errors", "chromosome=i", "begin=i", "end=i", "minfreq=f", "maxfreq=f", "verbose", "background2", "referrors=s", "outlier-window-size=i", "outlier-pvalue=f", "window-size=s", "no-interval", "runid=i"); #, "window-step=i");
+        GetOptions(\%CMD, "target=f", "conf=f", "chrsizes=s", "folder=s", "marker=s", "marker-format=s", "consen=s", "consen-format=s", "min-marker=i", "min-coverage=i", "filter-errors", "mis-phenotyped=f", "chromosome=i", "begin=i", "end=i", "minfreq=f", "maxfreq=f", "verbose", "background2", "referrors=s", "outlier-window-size=i", "outlier-pvalue=f", "window-size=s", "no-interval", "runid=i"); #, "window-step=i");
 
-        die("Please specify target allele frequency\n") unless defined($CMD{target});
         die("Please specify chromosome sizes file\n") unless defined($CMD{chrsizes});
         die("Please specify output folder\n") unless defined($CMD{folder});
         die("Please specify marker file\n") unless defined($CMD{marker});
@@ -651,6 +666,13 @@ See documentation for file formats.
 	if (defined($CMD{"outlier-pvalue"})) {
                 $outlier_pvalue = $CMD{"outlier-pvalue"};
         }
+
+	if (defined($CMD{"mis-phenotyped"})) {
+		$misphenotyped = $CMD{"mis-phenotyped"};
+		if ($misphenotyped =~ m/[^0-9.]/ ) { die("Misphenotyping is not numeric ($misphenotyped).\n");}
+		if ($misphenotyped < 0 or $misphenotyped > 1) { die("Misphenotyping needs to be between 0 and 1.\n");}
+	}
+
 
 	if (defined($CMD{chromosome}) or defined($CMD{begin}) or defined($CMD{end}) or defined($CMD{minfreq}) or defined($CMD{maxfreq})) {
                 if (not(defined($CMD{chromosome}) and defined($CMD{begin}) and defined($CMD{end}) and defined($CMD{minfreq}) and defined($CMD{maxfreq}))) {
