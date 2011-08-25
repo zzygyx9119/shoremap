@@ -8,11 +8,13 @@
 require(bbmle)
 require(EMT)
 
-ShoreMap.confint <- function(chromosome,positions, background_count, foreground_count, error_count, foreground_frequency=1, level=0.99, recurse=FALSE, forceInclude=FALSE, allowAdjustment=0.05, filterOutliers=200000, filterPValue=0.05) {
+ShoreMap.confint <- function(chromosome,positions, background_count, foreground_count, error_count, foreground_frequency=1, level=c(0.95,0.99,0.999), recurse=FALSE, forceInclude=TRUE, allowAdjustment=0.0, filterOutliers=200000, filterPValue=0.05,winSize=50000,minMarker=0,minCoverage=0) {
+ allowAdjustment=0.0
+ minMarker=10
 # print(sapply(ls(all.names=TRUE),function(x) eval(parse(text=paste("length(",x,")",sep="")))))
  foreground_frequency<-as.numeric(foreground_frequency)
  internalData<- cbind(chromosome,positions,foreground_count,background_count,error_count)
- internalData<- internalData[rowSums(internalData[,3:5])>0,]
+ internalData<- internalData[rowSums(internalData[,3:5])>minCoverage,]
  print(paste("Analysing chr ",chromosome[1],", with ",length(chromosome)," (",length(internalData[,1]),") markers for equality to ",foreground_frequency,"(",typeof(foreground_frequency),")",sep=""))
  assign("storage_shoremapmle",matrix(c(-1,-1,-1),nrow=1),".GlobalEnv")
 # assign("savedCalc_shoremapmle",0,".GlobalEnv") 
@@ -33,21 +35,42 @@ ShoreMap.confint <- function(chromosome,positions, background_count, foreground_
  bestsize<-max(bestsize,minWindow)
  print(paste("Bestsize:",bestsize))
  if(bestsize<length(dataset_shoremapmle[,1])){
-  ps_global<-sapply(1:(length(dataset_shoremapmle[,1])-bestsize+1),function(x) {cur_freqs<-freqs[x:(x+bestsize-1)]; p<-tryCatch(t.test(cur_freqs,mu=foreground_frequency)$p.value,error=function(err) { -616});ifelse(is.na(p),-617,p)})
-  print(paste("Finding initial peak(s).. best p-value (equality to ",foreground_frequency,"): ",max(ps_global),sep=""))
-  maxpI<-((1:length(ps_global))+floor(bestsize/2))[ps_global==max(ps_global)]
-  if(length(maxpI)==1){
-   print(paste("   At: ",internalData[maxpI[1],2]," bp",sep=""))
-  }else if(max(ps_global)>0){
-   sapply(maxpI,function(x) print(paste("   At: ",internalData[x,2]," bp",sep="")))
+  avg_pos<-c(sapply(seq(0,winSize-1,10000),function(shift){
+   windows<- floor((internalData[,2]+shift)/winSize)
+   windowsToUse<- windows %in% unique(windows)[table(windows)>minMarker]
+   tapply(internalData[windowsToUse,2],windows[windowsToUse],mean)
+  }),recursive=TRUE)
+  avg_freq<-c(sapply(seq(0,winSize-1,10000),function(shift){
+   windows<- floor((internalData[,2]+shift)/winSize)
+   windowsToUse<- windows %in% unique(windows)[table(windows)>minMarker]
+   tapply(internalData[windowsToUse,3],windows[windowsToUse],sum)/tapply(rowSums(internalData[windowsToUse,3:5]),windows[windowsToUse],sum)
+  }),recursive=TRUE)
+  avg_posFreq<-cbind(avg_pos,avg_freq)
+  avg_posFreq<-t(sapply(sort(avg_posFreq[,1],index.return=T)$ix,function(x) avg_posFreq[x,]))
+  avg_minIndex<-which(min(abs(avg_freq-foreground_frequency))==abs(avg_freq-foreground_frequency))
+
+  print(paste("Finding initial peak(s).. min distance in a window of size ",winSize," bp to ",foreground_frequency,": ",min(abs(avg_freq-foreground_frequency)),sep=""))
+
+  for(index in avg_minIndex){
+   print(paste("   At (avg(pos) in window): ",round(avg_pos[index])," bp",sep=""))
   }
-  res<- identify_peaks(1,length(internalData[,2]),foreground_frequency,level,minWindow,ps_global,bestsize,recurse,forceInclude, allowAdjustment)
-# rm(dataset_shoremapmle)
-# rm(storage_shoremapmle)
-  ci<-apply(res,1,function(x) t(c(start=ifelse(x[3]<0,internalData[x[1],2],0), stop=ifelse(x[3]<0,internalData[x[1]+x[2]-1,2],0),p.value=ifelse(x[3]<0,-1*(x[3]+x[2]),x[3]))))
-  print("Found interval:")
-  for(i in 1:length(ci[1,])){
-   print(paste(ci[1,i],"-",ci[2,i]))
+  
+  #order confidence levels
+  level<-sort(level)
+
+  res<- identify_peaks(1,length(internalData[,2]),foreground_frequency,level,minWindow,avg_posFreq,bestsize,recurse,forceInclude, allowAdjustment)
+  print(res)
+  res<-matrix(res[res[,3]<0,],ncol=4)
+  ci<-matrix(c(0,0,920,1),nrow=4)
+  print(res)
+#  print(dim(res))
+  if(!is.null(dim(res))&&dim(res)[1]>0){
+   ci<-matrix(apply(res,1,function(x) t(c(start=ifelse(x[3]<0,internalData[x[1],2],0), stop=ifelse(x[3]<0,internalData[x[1]+x[2]-1,2],0),p.value=ifelse(x[3]<0,-1*(x[3]+x[2]),x[3]),level=x[4] ))),nrow=4)
+   print("Found interval:")
+#   print(ci)
+   for(i in 1:length(ci[1,])){
+    print(paste(ci[1,i],"-",ci[2,i]))
+   }
   }
 #  apply(ci,2,function(x) print(paste(x[1],"-",x[2])))
   list(confidenceInterval=ci,excluded=filtered)
@@ -107,37 +130,76 @@ filterSamplingv3 <-function(internalData,fs_windowsize=200000,fs_limit=0.05,fs_e
  !fs_filter
 }
 
-
-identify_peaks <- function(indexL,indexH,frequency,level,minWindow,ps_global,bestsize,recurse,forceInclude=FALSE,allowAdjustment=0.05){
+identify_peaks <- function(indexL,indexH,frequency,level,minWindow,avg_posFreq,bestsize,recurse,forceInclude=TRUE,allowAdjustment=0.05){
+ assign("storage_shoremapmle",matrix(c(-1,-1,-1),nrow=1),".GlobalEnv")
  if(indexH-indexL>max(minWindow,bestsize)){
 #  print(paste(indexL,indexH,bestsize,sep=" ### "))
-  cur_indices<-indexL:(indexH-bestsize+1)
-  ps<-ps_global[cur_indices]
-  if(max(ps)>0.0000000001){
+  cur_indices<-indexL:indexH
+  avg_pf<-avg_posFreq[avg_posFreq[,1]>=min(dataset_shoremapmle[cur_indices,2]) & avg_posFreq[,1]<=max(dataset_shoremapmle[cur_indices,2]),]
+  if(TRUE){ #condition to recect if avg_pf is too distant
    #try to find peaks
-   starts<- which.max(ps)
+   starts<-avg_pf[which(min(abs(avg_pf[,2]-frequency))==abs(avg_pf[,2]-frequency)),1]
    while(length(starts)>0){
-    beststart<- starts[ceiling(length(starts)/2)]
+    start<- starts[ceiling(length(starts)/2)]
+    beststarts<-which(min(abs(dataset_shoremapmle[,2]-start))==abs(dataset_shoremapmle[,2]-start))
+    beststart<-beststarts[ceiling(length(beststarts)/2)]
     #see if the frequency needs adjustment
-    newFreq<-multll(beststart,bestsize)$coef[1]
+    newFreq<-multll(beststart-floor(bestsize/2),bestsize)$coef[1]
     if(abs(frequency-newFreq)<allowAdjustment){
      print(paste("The goal frequency was adjusted from ",frequency," to ",newFreq,", which is the estimated frequency in the preliminary interval",sep=""))
      frequency<-newFreq
     }
-    res<-extend(beststart,bestsize,level,frequency,indexL,indexH,minWindow, forceInclude)
-    if(res[1,3]>0){
+    res<-extend(beststart,bestsize,level[1],frequency,indexL,indexH,minWindow, forceInclude)
+    if(length(level)>1){
+     for(i in 2:length(level)){
+      res2<-c(1,1,618,level[i])
+      assign("storage_shoremapmle",matrix(c(-1,-1,-1),nrow=1),".GlobalEnv")
+      if(res[i-1,3]>0){
+       res2<-extend(beststart,bestsize,level[i],frequency,indexL,indexH,minWindow, forceInclude)
+      }else{
+       res2<-extend(res[i-1,1],res[i-1,2],level[i],frequency,indexL,indexH,minWindow, forceInclude)
+      }
+      res<-rbind(res,res2)
+     }
+    }
+    if(min(res[,3])>0){
      if(length(starts)==1){
-      return(t(as.matrix(c(1,1,616))))
+      return(matrix(c(1,1,616,1),ncol=4))
       break
      }else{
       starts<-starts[1:length(starts)!=ceiling(length(starts)/2)]
      }
     }else if(recurse){
-     if(res[1,3]<0){
-      resL<- identify_peaks(indexL, res[1,1], frequency, level, minWindow, ps_global, bestsize, recurse, forceInclude,0.0)
-      resH<- identify_peaks(res[1,1]+res[1,2], indexH, frequency, level, minWindow, ps_global, bestsize, recurse, forceInclude,0.0)
-      if(resL[1,3]<0){
-       if(resH[1,3]<0){
+     if(min(res[,3])<0){
+      resL<- identify_peaks(indexL, min(res[res[,3]<0,1]), frequency, level[1], minWindow, avg_posFreq, bestsize, recurse, forceInclude,0.0)
+      if(length(level)>1){
+       for(i in 2:length(level)){
+        res2<-c(1,1,618,level[i])
+        assign("storage_shoremapmle",matrix(c(-1,-1,-1),nrow=1),".GlobalEnv")
+        if(res[i-1,3]>0){
+         res2<-extend(beststart,bestsize,level[i],frequency,indexL,min(res[res[,3]<0,1]),minWindow, forceInclude)
+        }else{
+         res2<-extend(resL[i-1,1],resL[i-1,2],level[i],frequency,indexL,min(res[res[,3]<0,1]),minWindow, forceInclude)
+        }
+        resL<-rbind(resL,res2)
+       }
+      }
+      resH<- identify_peaks(max(res[res[,3]<0,1]+res[res[,3]<0,2]), indexH, frequency, level[1], minWindow, avg_posFreq, bestsize, recurse, forceInclude,0.0)
+      if(length(level)>1){
+       for(i in 2:length(level)){
+        res2<-c(1,1,618,level[i])
+        assign("storage_shoremapmle",matrix(c(-1,-1,-1),nrow=1),".GlobalEnv")
+        if(res[i-1,3]>0){
+         res2<-extend(beststart,bestsize,level[i],frequency,max(res[res[,3]<0,1]+res[res[,3]<0,2]),indexH,minWindow, forceInclude)
+        }else{
+         res2<-extend(resH[i-1,1],resH[i-1,2],level[i],frequency,max(res[res[,3]<0,1]+res[res[,3]<0,2]),indexH,minWindow, forceInclude)
+        }
+        resH<-rbind(resH,res2)
+       }
+      }
+
+      if(min(resL[,3])<0){
+       if(min(resH[,3])<0){
         #both good
         return(rbind(resL,res,resH))
         break
@@ -146,7 +208,7 @@ identify_peaks <- function(indexL,indexH,frequency,level,minWindow,ps_global,bes
         return(rbind(resL,res))
         break
        }
-      }else if(resH[1,3]<0){
+      }else if(min(resH[,3])<0){
        #high good
        return(rbind(res,resH))
         break
@@ -165,11 +227,11 @@ identify_peaks <- function(indexL,indexH,frequency,level,minWindow,ps_global,bes
    }#end while loop
   }else{
    #No peak
-   return(t(as.matrix(c(1,1,616))))
+   return(t(as.matrix(c(1,1,616,1))))
   }
  }else{
   #Too small window
-  return(t(as.matrix(c(1,1,617))))
+  return(t(as.matrix(c(1,1,617,1))))
  }
 }
 
@@ -219,24 +281,25 @@ restrictedModel <- function(P1,x,size) {
  mle2(loglikelihood_mult,optimizer="optimize",start=list(llm_err=rM_errEst),fixed=list(llm_P1=P1,llm_index=x,llm_size=size),lower=0, upper=1)
 }
 
-maxConf<-function(x,level=0.95,freq=0,indexL=0,indexH=Inf,minWindow=10,include=-1){
+maxConf<-function(x,level=0.95,freq=0,indexL=0,indexH=Inf,minWindow=10,include=c(-1,-1)){
  #function to minimize for the optimization of the interval
  start<-floor(x[1])
  size<-floor(x[2])
+# print(paste(start,size,sep=" ## "))
  indexL<- max(1,indexL)
  indexH<- min(length(dataset_shoremapmle[,2]),indexH)
  if(size<minWindow){
-  110000-size+minWindow
+  140000-size+minWindow
  }else if(start<indexL){
-  110000+indexL-start
+  130000+indexL-start
  }else if(start+size-1>indexH){
-  110000-indexH-1+start+size
- }else if(include!=-1 && start>include){
-  #given point not included
-  110000+start-include
- }else if(include!=-1 && start+size-1<include){
-  #given point not included
-  110000+include-start-size+1
+  120000-indexH-1+start+size
+ }else if(sum(include)>0 && (start>include[1])){
+  #given region not included
+  110000+start-include[1]
+ }else if(sum(include)>0 && (start+size < sum(include))){
+  #given region not included
+  110000-start-size+sum(include)
  }else{
   #check storage
   if(sum(storage_shoremapmle[,1]==start&storage_shoremapmle[,2]==size)==1){
@@ -266,14 +329,20 @@ maxConf<-function(x,level=0.95,freq=0,indexL=0,indexH=Inf,minWindow=10,include=-
  }
 }
 
+pInterval<-function(start,size,freq){
+ fit<-multll(start,size)
+ restrictedFit<- restrictedModel(freq,start,size)
+ pchisq(-2*(fit$min-restrictedFit@min),1)
+}
+
 extend <- function(beststart,bestsize=10,level=0.99,freq=1,indexL=0,indexH=Inf,minWindow=10,forceInclude=TRUE){
  #given a window it extends this as far as possible to the left and right without exceeding the confidence level
  bestvalue<-Inf
  indexL<- max(1,indexL)
  indexH<- min(length(dataset_shoremapmle[,2]),indexH)
- inclusion<--1
+ inclusion<-c(-1,-1)
  if(forceInclude){
-  inclusion<-beststart+floor(bestsize/2)
+  inclusion<-c(beststart,bestsize)
  }
  
  #a first optimization
@@ -367,7 +436,7 @@ extend <- function(beststart,bestsize=10,level=0.99,freq=1,indexL=0,indexH=Inf,m
   #optimization again before reitteration
   nextTest<- optim(fn=maxConf,method="Nelder-Mead",par=c(beststart,bestsize),control=list(ndeps=c(1,1),maxit=100),level=level,freq=freq,indexL=max(indexL,beststart-10*minWindow),indexH=min(indexH,beststart+bestsize+10*minWindow),minWindow=minWindow,include=inclusion)
  }
- t(as.matrix(c(beststart,bestsize,bestvalue)))
+ matrix(as.numeric(c(beststart,bestsize,bestvalue,level)),ncol=4)
 }
 
 #not better
