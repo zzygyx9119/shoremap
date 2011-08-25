@@ -107,44 +107,6 @@ filterSamplingv3 <-function(internalData,fs_windowsize=200000,fs_limit=0.05,fs_e
  !fs_filter
 }
 
-filterSampling <- function(internalData,fs_windowsize=200000,fs_limit=0.05,fs_exact=FALSE){
- assign("dataset_shoremapmle",internalData,".GlobalEnv")
- fs_ret<- c()
- fs_windows<-floor(internalData[,2]/fs_windowsize)
- fs_allIndices<-1:length(fs_windows)
- print(paste("Analysing ", length(unique(fs_windows)), " ", fs_windowsize, " bp windows for outliers",sep="" ))
- for(fs_window in unique(fs_windows)){
-  fs_curIndices<-fs_allIndices[fs_windows==fs_window]
-  fs_startPos<-min(fs_curIndices)
-  fs_size<-length(fs_curIndices)
-  if(fs_size>3){
-   fs_p.win<- samplefreqs(fs_startPos,fs_size)
-   fs_p.res<-c()
-   if(fs_exact){
-    sink("/dev/null");
-    fs_p.res<-apply(internalData[fs_curIndices,],1,function(x) multinomial.test(x[3:5],prob=fs_p.win)$p.value);
-    sink();
-   }else{
-    fs_p1<-fs_p.win[3]
-    fs_p2<-fs_p.win[1]/sum(fs_p.win[1:2])
-#    fs_p2Alt<-fs_p.win[2]/sum(fs_p.win[1:2])
-    fs_p.res<-apply(internalData[fs_curIndices,3:5],1,function(x) pbinom(x[3],size=sum(x),prob=fs_p1)*pbinom(x[1],size=sum(x[1:2]),prob=fs_p2,lower.tail=x[1]<sum(x[1:2])*fs_p2))
-#    fs_p.res<-apply(internalData[fs_curIndices,3:5],1,function(x) pbinom(x[3],size=sum(x),prob=fs_p1)*ifelse(x[1]<x[2],pbinom(x[1],size=sum(x[1:2]),prob=fs_p2),pbinom(x[2],size=sum(x[1:2]),prob=fs_p2Alt)));
-   }
-   fs_ret<-c(fs_ret,fs_p.res)
-  }else{
-   fs_ret<-c(fs_ret,rep(1,fs_size))
-  }
- }
- p.adjust(fs_ret,method="holm")>=fs_limit
-}
-
-filterFreqs <- function(freqs,flanksize, limit=1e-15){
- #calculate adjusted p-values
- outlier_p<-p.adjust(sapply((flanksize+1):(length(freqs)-flanksize),function(x) t.test(c(freqs[(x-flanksize):(x-1)],freqs[(x+1):(x+flanksize)]),mu=freqs[x])$p.value))
- #flank and return
- c(rep(TRUE,flanksize),outlier_p>=limit,rep(TRUE,flanksize))
-}
 
 identify_peaks <- function(indexL,indexH,frequency,level,minWindow,ps_global,bestsize,recurse,forceInclude=FALSE,allowAdjustment=0.05){
  if(indexH-indexL>max(minWindow,bestsize)){
@@ -239,7 +201,12 @@ multll<- function(ml_x,ml_size=10) {
  p.win<-samplefreqs(ml_x,ml_size)
  ml_errEst<-3*p.win[3]/2
  ml_P1est<-(p.win[1]-ml_errEst/3)/(1-4*ml_errEst/3)
+ #preventing out of bounds results for non-model cases like a homozygous marker with errors
+ ml_errEst<-min(1,max(0,ml_errEst))
+ ml_P1est<-min(1,max(0,ml_P1est))
+ #calculate likelihood
  ml_min<-loglikelihood_mult(llm_P1=ml_P1est,llm_err=ml_errEst,llm_index=ml_x,llm_size=ml_size)
+ #return mle2-like results
  list(coef=c(ml_P1est,ml_errEst),min=ml_min)
 }
 
@@ -438,3 +405,38 @@ filterSamplingv2 <- function(internalData,fs_windowsize=200000,fs_limit=0.05,fs_
  })
  p.adjust(fs_ret,method="holm")>=fs_limit
 }
+
+
+#not as good
+filterSampling <- function(internalData,fs_windowsize=200000,fs_limit=0.05,fs_exact=FALSE){
+ assign("dataset_shoremapmle",internalData,".GlobalEnv")
+ fs_ret<- c()
+ fs_windows<-floor(internalData[,2]/fs_windowsize)
+ fs_allIndices<-1:length(fs_windows)
+ print(paste("Analysing ", length(unique(fs_windows)), " ", fs_windowsize, " bp windows for outliers",sep="" ))
+ for(fs_window in unique(fs_windows)){
+  fs_curIndices<-fs_allIndices[fs_windows==fs_window]
+  fs_startPos<-min(fs_curIndices)
+  fs_size<-length(fs_curIndices)
+  if(fs_size>3){
+   fs_p.win<- samplefreqs(fs_startPos,fs_size)
+   fs_p.res<-c()
+   if(fs_exact){
+    sink("/dev/null");
+    fs_p.res<-apply(internalData[fs_curIndices,],1,function(x) multinomial.test(x[3:5],prob=fs_p.win)$p.value);
+    sink();
+   }else{
+    fs_p1<-fs_p.win[3]
+    fs_p2<-fs_p.win[1]/sum(fs_p.win[1:2])
+#    fs_p2Alt<-fs_p.win[2]/sum(fs_p.win[1:2])
+    fs_p.res<-apply(internalData[fs_curIndices,3:5],1,function(x) pbinom(x[3],size=sum(x),prob=fs_p1)*pbinom(x[1],size=sum(x[1:2]),prob=fs_p2,lower.tail=x[1]<sum(x[1:2])*fs_p2))
+#    fs_p.res<-apply(internalData[fs_curIndices,3:5],1,function(x) pbinom(x[3],size=sum(x),prob=fs_p1)*ifelse(x[1]<x[2],pbinom(x[1],size=sum(x[1:2]),prob=fs_p2),pbinom(x[2],size=sum(x[1:2]),prob=fs_p2Alt)));
+   }
+   fs_ret<-c(fs_ret,fs_p.res)
+  }else{
+   fs_ret<-c(fs_ret,rep(1,fs_size))
+  }
+ }
+ p.adjust(fs_ret,method="holm")>=fs_limit
+}
+
