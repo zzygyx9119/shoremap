@@ -59,11 +59,8 @@ ShoreMap.confint <- function(chromosome,positions, background_count, foreground_
   level<-sort(level)
 
   res<- identify_peaks(1,length(internalData[,2]),foreground_frequency,level,minWindow,avg_posFreq,bestsize,recurse,forceInclude, allowAdjustment)
-  print(res)
   res<-matrix(res[res[,3]<0,],ncol=4)
   ci<-matrix(c(0,0,920,1),nrow=4)
-  print(res)
-#  print(dim(res))
   if(!is.null(dim(res))&&dim(res)[1]>0){
    ci<-matrix(apply(res,1,function(x) t(c(start=ifelse(x[3]<0,internalData[x[1],2],0), stop=ifelse(x[3]<0,internalData[x[1]+x[2]-1,2],0),p.value=ifelse(x[3]<0,-1*(x[3]+x[2]),x[3]),level=x[4] ))),nrow=4)
    print("Found interval:")
