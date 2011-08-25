@@ -9,8 +9,8 @@ require(bbmle)
 require(EMT)
 
 ShoreMap.confint <- function(chromosome,positions, background_count, foreground_count, error_count, foreground_frequency=1, level=c(0.95,0.99,0.999), recurse=FALSE, forceInclude=TRUE, allowAdjustment=0.0, filterOutliers=200000, filterPValue=0.05,winSize=50000,minMarker=0,minCoverage=0) {
- allowAdjustment=0.0
- minMarker=10
+# allowAdjustment=0.0
+# minMarker=10
 # print(sapply(ls(all.names=TRUE),function(x) eval(parse(text=paste("length(",x,")",sep="")))))
  foreground_frequency<-as.numeric(foreground_frequency)
  internalData<- cbind(chromosome,positions,foreground_count,background_count,error_count)
