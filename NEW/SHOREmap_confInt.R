@@ -8,9 +8,10 @@
 require(bbmle)
 require(EMT)
 
-ShoreMap.confint <- function(chromosome,positions, background_count, foreground_count, error_count, foreground_frequency=1, level=c(0.95,0.99,0.999), recurse=FALSE, forceInclude=TRUE, allowAdjustment=0.0, filterOutliers=200000, filterPValue=0.05,winSize=50000,minMarker=0,minCoverage=0) {
+ShoreMap.confint <- function(chromosome,positions, background_count, foreground_count, error_count, foreground_frequency=1, level=0.99, recurse=FALSE, forceInclude=TRUE, allowAdjustment=0.0, filterOutliers=200000, filterPValue=0.05,winSize=50000,minMarker=0,minCoverage=0) {
 # allowAdjustment=0.0
 # minMarker=10
+# level<-c(0.95,0.99,0.999)
 # print(sapply(ls(all.names=TRUE),function(x) eval(parse(text=paste("length(",x,")",sep="")))))
  foreground_frequency<-as.numeric(foreground_frequency)
  internalData<- cbind(chromosome,positions,foreground_count,background_count,error_count)
@@ -66,9 +67,10 @@ ShoreMap.confint <- function(chromosome,positions, background_count, foreground_
    print("Found interval:")
 #   print(ci)
    for(i in 1:length(ci[1,])){
-    print(paste(ci[1,i],"-",ci[2,i]))
+    print(paste(ci[1,i],"-",ci[2,i],"level:",ci[4,i]))
    }
   }
+  plot(ci)
 #  apply(ci,2,function(x) print(paste(x[1],"-",x[2])))
   list(confidenceInterval=ci,excluded=filtered)
  }else{
