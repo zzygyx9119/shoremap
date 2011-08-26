@@ -8,11 +8,12 @@
 require(bbmle)
 require(EMT)
 
-ShoreMap.confint <- function(chromosome,positions, background_count, foreground_count, error_count, foreground_frequency=1, level=0.99, recurse=FALSE, forceInclude=TRUE, allowAdjustment=0.0, filterOutliers=200000, filterPValue=0.05,winSize=50000,minMarker=0,minCoverage=0) {
+ShoreMap.confint <- function(chromosome,positions, background_count, foreground_count, error_count, foreground_frequency=1, level=0.99, recurse=FALSE, forceInclude=TRUE, allowAdjustment=0.0, filterOutliers=200000, filterPValue=0.05,winSize=50000,winStep=10000,minMarker=10,minCoverage=0) {
 # allowAdjustment=0.0
 # minMarker=10
 # level<-c(0.95,0.99,0.999)
 # print(sapply(ls(all.names=TRUE),function(x) eval(parse(text=paste("length(",x,")",sep="")))))
+ minMarker<-max(1,minMarker)
  foreground_frequency<-as.numeric(foreground_frequency)
  internalData<- cbind(chromosome,positions,foreground_count,background_count,error_count)
  internalData<- internalData[rowSums(internalData[,3:5])>minCoverage,]
@@ -31,29 +32,30 @@ ShoreMap.confint <- function(chromosome,positions, background_count, foreground_
  assign("dataset_shoremapmle",internalData,".GlobalEnv")
  freqs<-internalData[,3]/rowSums(internalData[,3:5])
  assign("i_shoremapmle",0,".GlobalEnv")
- minWindow<-max(10,floor(length(internalData[,2])/10000))
- bestsize<- ceiling((max(table(sapply(2:length(freqs),function(x) if(freqs[x]==freqs[x-1]){i_shoremapmle}else{assign("i_shoremapmle",i_shoremapmle+1,".GlobalEnv");i_shoremapmle})))+1)/5)*5
+ minWindow<-minMarker
+# bestsize<- ceiling((max(table(sapply(2:length(freqs),function(x) if(freqs[x]==freqs[x-1]){i_shoremapmle}else{assign("i_shoremapmle",i_shoremapmle+1,".GlobalEnv");i_shoremapmle})))+1)/5)*5
+ bestsize<-minMarker
  bestsize<-max(bestsize,minWindow)
- print(paste("Bestsize:",bestsize))
+# print(paste("Bestsize:",bestsize))
  if(bestsize<length(dataset_shoremapmle[,1])){
-  avg_pos<-c(sapply(seq(0,winSize-1,10000),function(shift){
+  avg_pos<-c(sapply(seq(0,winSize-1,winStep),function(shift){
    windows<- floor((internalData[,2]+shift)/winSize)
    windowsToUse<- windows %in% unique(windows)[table(windows)>minMarker]
    tapply(internalData[windowsToUse,2],windows[windowsToUse],mean)
   }),recursive=TRUE)
-  avg_freq<-c(sapply(seq(0,winSize-1,10000),function(shift){
+  avg_freq<-c(sapply(seq(0,winSize-1,winStep),function(shift){
    windows<- floor((internalData[,2]+shift)/winSize)
    windowsToUse<- windows %in% unique(windows)[table(windows)>minMarker]
    tapply(internalData[windowsToUse,3],windows[windowsToUse],sum)/tapply(rowSums(internalData[windowsToUse,3:5]),windows[windowsToUse],sum)
   }),recursive=TRUE)
   avg_posFreq<-cbind(avg_pos,avg_freq)
   avg_posFreq<-t(sapply(sort(avg_posFreq[,1],index.return=T)$ix,function(x) avg_posFreq[x,]))
-  avg_minIndex<-which(min(abs(avg_freq-foreground_frequency))==abs(avg_freq-foreground_frequency))
+  avg_minIndex<-which(min(abs(avg_posFreq[,2]-foreground_frequency))==abs(avg_posFreq[,2]-foreground_frequency))
 
-  print(paste("Finding initial peak(s).. min distance in a window of size ",winSize," bp to ",foreground_frequency,": ",min(abs(avg_freq-foreground_frequency)),sep=""))
+  print(paste("Finding initial peak(s).. min distance in a window of size ",winSize," bp to ",foreground_frequency,": ",min(abs(avg_posFreq[,2]-foreground_frequency)),sep=""))
 
   for(index in avg_minIndex){
-   print(paste("   At (avg(pos) in window): ",round(avg_pos[index])," bp",sep=""))
+   print(paste("   At (avg(pos) in window): ",round(avg_posFreq[index,1])," bp",sep=""))
   }
   
   #order confidence levels
@@ -72,10 +74,10 @@ ShoreMap.confint <- function(chromosome,positions, background_count, foreground_
   }
   plot(ci)
 #  apply(ci,2,function(x) print(paste(x[1],"-",x[2])))
-  list(confidenceInterval=ci,excluded=filtered)
+  list(confidenceInterval=ci,excluded=filtered,averaged=avg_posFreq)
  }else{
   #too few markers
-  list(confidenceInterval=t(t(c(0,0,919))),excluded=filtered)
+  list(confidenceInterval=t(t(c(0,0,919))),excluded=filtered,averaged=c(-1,-1))
  }
 }
 
@@ -142,6 +144,7 @@ identify_peaks <- function(indexL,indexH,frequency,level,minWindow,avg_posFreq,b
     start<- starts[ceiling(length(starts)/2)]
     beststarts<-which(min(abs(dataset_shoremapmle[,2]-start))==abs(dataset_shoremapmle[,2]-start))
     beststart<-beststarts[ceiling(length(beststarts)/2)]
+    beststart<-min(length(dataset_shoremapmle[,1])-bestsize,beststart)
     #see if the frequency needs adjustment
     newFreq<-multll(beststart-floor(bestsize/2),bestsize)$coef[1]
     if(abs(frequency-newFreq)<allowAdjustment){
