@@ -147,7 +147,7 @@ for (my $w = 0; $w < @window_sizes; $w++) {
 				# and if there are enough marker in the current window
 
 				if (($report_pos > $last_report + $window_step - 1) and
-                	    	    ($filter_min_marker <= $marker_sum)) 
+                	    	    ($filter_min_marker <= $marker_sum or $window_size == 1)) 
 				{
 
 					#my $boost = get_boost($allele1_sum, $allele2_sum);
