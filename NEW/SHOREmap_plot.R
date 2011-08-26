@@ -86,10 +86,12 @@ for (chr in 1:(length(chrsize$V1))) {
 	        		        ci_background_count<-ciData[,4]
 	        	        	ci_forground_count<-ciData[,3]
 		        	        ci_error_count<-ciData[,5]
-        		        	ci_result<-ShoreMap.confint(ci_chromosome, ci_positions, ci_background_count, ci_forground_count, ci_error_count, foreground_frequency=target, level=conf_level, recurse=F, forceInclude=T, allowAdjustment=misscored, filterOutliers=filterOutliers, filterPValue=filterPValue,winSize=winstep,minMarker=0,minCoverage=0)
+        		        	ci_result<-ShoreMap.confint(ci_chromosome, ci_positions, ci_background_count, ci_forground_count, ci_error_count, foreground_frequency=target, level=conf_level, recurse=F, forceInclude=T, allowAdjustment=misscored, filterOutliers=filterOutliers, filterPValue=filterPValue,winSize=50000,winStep=10000,minMarker=10,minCoverage=0)
 
 	        	        	ci<-ci_result$confidenceInterval
         	                	ci_filtered <- ci_positions %in% ci_result$excluded 
+        	                	#for plotting the windowed markers
+					ci_avgPosFreq <- ci_result$averaged
 				}
 
 
