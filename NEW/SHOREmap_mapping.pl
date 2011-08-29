@@ -183,6 +183,7 @@ foreach my $chr (sort {$a cmp $b} keys %CHR2POS2ALLELE1_COUNT) {
 my $pdffile = "$out_folder/SHOREmap.pdf";
 my $cmd = "R --slave --vanilla --args $expect $chrsizes $pdffile $out_folder/SHOREmap.zoom_region.txt $window_size $window_step $FindBin::Bin $out_folder $outlier_window_size $outlier_pvalue $confidence $misphenotyped $filter_min_marker $filter_min_coverage $r_max $plot_r $boost_max $plot_boost $runid < ".$FindBin::Bin."/SHOREmap_plot.R"; # 2> /dev/null";
 print STDERR $cmd, "\n" if $verbose == 1;
+$cmd .= " 2> /dev/null" if $verbose == 0;
 system($cmd);
 
 
@@ -721,7 +722,7 @@ See documentation for file formats.
                 $boost_max = $CMD{"boost-max"};
         }
 
-	if (defined($CMD{"plot_boost"})) {
+	if (defined($CMD{"plot-boost"})) {
                 $plot_boost = 1;
         }
 
@@ -729,8 +730,8 @@ See documentation for file formats.
                 $r_max = $CMD{"r-max"};
         }
 
-	if (defined($CMD{"plot_r"})) {
-                $r_max = 1;
+	if (defined($CMD{"plot-r"})) {
+                $plot_r = 1;
         }
 
 	####################################################################################

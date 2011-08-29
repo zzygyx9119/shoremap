@@ -80,8 +80,8 @@ for (chr in 1:(length(chrsize$V1))) {
     	ci_forground_count<-ciData[,3]
         ci_error_count<-ciData[,5]
       	ci_result<-ShoreMap.confint(ci_chromosome, ci_positions, ci_background_count, ci_forground_count, ci_error_count, foreground_frequency=target, level=2, recurse=F, forceInclude=T, allowAdjustment=misscored, filterOutliers=0, filterPValue=filterPValue,winSize=winsize,winStep=winstep,minMarker=minMarker,minCoverage=minCov,peakFinding=3,rMax=rMax,boostMax=boostMax)
-	realBoostmax<-max(ci_result$averaged[,3])
-	realRmax<-max(ci_result$averaged[,4])
+	realBoostmax<-max(ci_result$averaged[,3], realBoostmax)
+	realRmax<-max(ci_result$averaged[,4], realRmax)
 }
 
 for (chr in 1:(length(chrsize$V1))) {
@@ -127,13 +127,13 @@ for (chr in 1:(length(chrsize$V1))) {
 			}
 
 
-			plot(data$V2[data$V1[]==chrname], freq, ylim=c(y_min, y_max+0.2), xlim=c(x_min, x_max), type="n", axes=F, xlab="", ylab="Allele Frequency", main=paste("Chromosome:", chrname, " (In black, window size of ", winstep, " bp.)", sep=""))
+			plot(data$V2[data$V1[]==chrname], freq, ylim=c(y_min, y_max+0.2), xlim=c(x_min, x_max), type="n", axes=F, xlab="", ylab="Allele Frequency", main=paste("Chromosome:", chrname, " (In black, window size of ", winsize, " bp.)", sep=""))
 			
 			for (bgl in seq(0.1, 1, 0.1)) {
        		               	lines(c(1, chrsize$V2[chr]), c(bgl, bgl), col="lightgrey")
                		}
 	
-			points(data$V2[data$V1[]==chrname], freq, ylim=c(y_min, y_max+0.2), col=ifelse(conf_level!=2 & ci_filtered,"red", ifelse((length(windowsizes$V1) == 1), "black", "grey")), xlim=c(x_min, x_max), pch=20)
+			points(data$V2[data$V1[]==chrname], freq, ylim=c(y_min, y_max+0.2), col=ifelse(conf_level!=2 & ci_filtered,"red", "grey"), xlim=c(x_min, x_max), pch=20)
 		
 			# Plot confidence interval
 			if (conf_level != 2 && ci[3, 1] <= 1) {
@@ -179,13 +179,15 @@ for (chr in 1:(length(chrsize$V1))) {
            		points(ci_avgPosFreq[,1], ci_avgPosFreq[,2], ylim=c(y_min, y_max+0.2), col="black", xlim=c(x_min, x_max), pch=20)
 
 			# boost
-			if (plot_boost == 1) {
+			if (plotBoost == 1) {
 	           		lines(ci_avgPosFreq[,1], ci_avgPosFreq[,3]/realBoostmax,col="blue")
+print("Plotting boost...")
 			}
 
 			#r
-			if (plot_r == 1) {
+			if (plotR == 1) {
 	           		lines(ci_avgPosFreq[,1], ci_avgPosFreq[,4]/realRmax,col="green")
+print("Plotting r...")
 			}
 
 			#######################################################
