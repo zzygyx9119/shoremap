@@ -86,7 +86,7 @@ for (chr in 1:(length(chrsize$V1))) {
        		        ci_background_count<-ciData[,4]
        	        	ci_forground_count<-ciData[,3]
         	        ci_error_count<-ciData[,5]
-	        	ci_result<-ShoreMap.confint(ci_chromosome, ci_positions, ci_background_count, ci_forground_count, ci_error_count, foreground_frequency=target, level=conf_level, recurse=F, forceInclude=T, allowAdjustment=misscored, filterOutliers=filterOutliers, filterPValue=filterPValue,winSize=winsize,winStep=winstep,minMarker=minMarker,minCoverage=minCov)
+	        	ci_result<-ShoreMap.confint(ci_chromosome, ci_positions, ci_background_count, ci_forground_count, ci_error_count, foreground_frequency=target, level=conf_level, recurse=F, forceInclude=T, allowAdjustment=misscored, filterOutliers=filterOutliers, filterPValue=filterPValue,winSize=winsize,winStep=winstep,minMarker=minMarker,minCoverage=minCov,peakFinding=3,rMax=rMax,boostMax=boostMax)
 
                 	ci<-ci_result$confidenceInterval
        	               	ci_filtered <- ci_positions %in% ci_result$excluded 
@@ -159,14 +159,14 @@ for (chr in 1:(length(chrsize$V1))) {
 
 
 			# Sliding window
-           		points(data$V2[data$V1[]==chrname], freq, ylim=c(y_min, y_max+0.2), col="black", xlim=c(x_min, x_max), pch=20)
+           		points(ci_avgPosFreq[,1], ci_avgPosFreq[,2], ylim=c(y_min, y_max+0.2), col="black", xlim=c(x_min, x_max), pch=20)
 
 
 			# boost
-
+           		lines(ci_avgPosFreq[,1], ci_avgPosFreq[,3],col="blue")
 
 			#r
-
+           		lines(ci_avgPosFreq[,1], ci_avgPosFreq[,4],col="green")
 
 
 			#######################################################

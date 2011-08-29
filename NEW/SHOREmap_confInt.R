@@ -8,11 +8,13 @@
 require(bbmle)
 require(EMT)
 
-ShoreMap.confint <- function(chromosome,positions, background_count, foreground_count, error_count, foreground_frequency=1, level=0.99, recurse=FALSE, forceInclude=TRUE, allowAdjustment=0.0, filterOutliers=200000, filterPValue=0.05,winSize=50000,winStep=10000,minMarker=10,minCoverage=0,Rmax=1e5,boostmax=1e5) {
+ShoreMap.confint <- function(chromosome,positions, background_count, foreground_count, error_count, foreground_frequency=1, level=0.99, recurse=FALSE, forceInclude=TRUE, allowAdjustment=0.0, filterOutliers=200000, filterPValue=0.05,winSize=50000,winStep=10000,minMarker=10,minCoverage=0,peakFinding=3,rMax=1e5,boostMax=1e5) {
 # allowAdjustment=0.0
 # minMarker=10
 # level<-c(0.95,0.99,0.999)
 # print(sapply(ls(all.names=TRUE),function(x) eval(parse(text=paste("length(",x,")",sep="")))))
+# peakFinding<-3 #3 is boost, 4 is R
+ 
  minMarker<-max(1,minMarker)
  foreground_frequency<-as.numeric(foreground_frequency)
  internalData<- cbind(chromosome,positions,foreground_count,background_count,error_count)
@@ -55,36 +57,40 @@ ShoreMap.confint <- function(chromosome,positions, background_count, foreground_
    ref<-tapply(internalData[windowsToUse,4],windows[windowsToUse],sum)
    ret<-pmax(allele/ref,ref/allele)
    ret[ret==1]<-0
-   ret[ret>Rmax]<-Rmax
+   ret[ret>rMax]<-rMax
    ret/max(ret)
   }),recursive=TRUE)
-  avg_boost<-pmin(boostmax,abs(1/(1-foreground_frequency/pmax(avg_freq,1-avg_freq))))
+  avg_boost<-pmin(boostMax,abs(1/(1-foreground_frequency/pmax(avg_freq,1-avg_freq))))
   avg_boost<-avg_boost/max(avg_boost)
-  avg_posFreq<-cbind(avg_pos,avg_freq,avg)
+  avg_posFreq<-cbind(avg_pos,avg_freq,avg_boost,avg_R)
   avg_posFreq<-t(sapply(sort(avg_posFreq[,1],index.return=T)$ix,function(x) avg_posFreq[x,]))
-  avg_minIndex<-which(min(abs(avg_posFreq[,2]-foreground_frequency))==abs(avg_posFreq[,2]-foreground_frequency))
+  #avg_minIndex<-which(min(abs(avg_posFreq[,2]-foreground_frequency))==abs(avg_posFreq[,2]-foreground_frequency))
 
-  print(paste("Finding initial peak(s).. min distance in a window of size ",winSize," bp to ",foreground_frequency,": ",min(abs(avg_posFreq[,2]-foreground_frequency)),sep=""))
-
-  for(index in avg_minIndex){
-   print(paste("   At (avg(pos) in window): ",round(avg_posFreq[index,1])," bp",sep=""))
-  }
-  
-  #order confidence levels
-  level<-sort(level)
-
-  res<- identify_peaks(1,length(internalData[,2]),foreground_frequency,level,minWindow,avg_posFreq,bestsize,recurse,forceInclude, allowAdjustment)
-  res<-matrix(res[res[,3]<0,],ncol=4)
+#  print(paste("Finding initial peak(s).. min distance in a window of size ",winSize," bp to ",foreground_frequency,": ",min(abs(avg_posFreq[,2]-foreground_frequency)),sep=""))
   ci<-matrix(c(0,0,920,1),nrow=4)
-  if(!is.null(dim(res))&&dim(res)[1]>0){
-   ci<-matrix(apply(res,1,function(x) t(c(start=ifelse(x[3]<0,internalData[x[1],2],0), stop=ifelse(x[3]<0,internalData[x[1]+x[2]-1,2],0),p.value=ifelse(x[3]<0,-1*(x[3]+x[2]),x[3]),level=x[4] ))),nrow=4)
-   print("Found interval:")
-#   print(ci)
-   for(i in 1:length(ci[1,])){
-    print(paste(ci[1,i],"-",ci[2,i],"level:",ci[4,i]))
+  if(level[1]<=1){
+   avg_minIndex<-which(avg_posFreq[,peakFinding]==max(avg_posFreq[,peakFinding]))
+   print(paste("Finding initial peak(s).. choosen method in a window of size ",winSize," bp",sep=""))
+
+   for(index in avg_minIndex){
+    print(paste("   At (avg(pos) in window): ",round(avg_posFreq[index,1])," bp",sep=""))
+   }
+  
+   #order confidence levels
+   level<-sort(level)
+
+   res<- identify_peaks(1,length(internalData[,2]),foreground_frequency,level,minWindow,avg_posFreq[,c(1,peakFinding)],bestsize,recurse,forceInclude, allowAdjustment)
+   res<-matrix(res[res[,3]<0,],ncol=4)
+   if(!is.null(dim(res))&&dim(res)[1]>0){
+    ci<-matrix(apply(res,1,function(x) t(c(start=ifelse(x[3]<0,internalData[x[1],2],0), stop=ifelse(x[3]<0,internalData[x[1]+x[2]-1,2],0),p.value=ifelse(x[3]<0,-1*(x[3]+x[2]),x[3]),level=x[4] ))),nrow=4)
+    print("Found interval:")
+#    print(ci)
+    for(i in 1:length(ci[1,])){
+     print(paste(ci[1,i],"-",ci[2,i],"level:",ci[4,i]))
+    }
    }
   }
-  plot(ci)
+#  plot(ci)
 #  apply(ci,2,function(x) print(paste(x[1],"-",x[2])))
   list(confidenceInterval=ci,excluded=filtered,averaged=avg_posFreq)
  }else{
@@ -151,7 +157,8 @@ identify_peaks <- function(indexL,indexH,frequency,level,minWindow,avg_posFreq,b
   avg_pf<-avg_posFreq[avg_posFreq[,1]>=min(dataset_shoremapmle[cur_indices,2]) & avg_posFreq[,1]<=max(dataset_shoremapmle[cur_indices,2]),]
   if(TRUE){ #condition to recect if avg_pf is too distant
    #try to find peaks
-   starts<-avg_pf[which(min(abs(avg_pf[,2]-frequency))==abs(avg_pf[,2]-frequency)),1]
+#   starts<-avg_pf[which(min(abs(avg_pf[,2]-frequency))==abs(avg_pf[,2]-frequency)),1]
+   starts<-avg_pf[which(avg_pf[,2]==max(avg_pf[,2])),1]
    while(length(starts)>0){
     start<- starts[ceiling(length(starts)/2)]
     beststarts<-which(min(abs(dataset_shoremapmle[,2]-start))==abs(dataset_shoremapmle[,2]-start))
