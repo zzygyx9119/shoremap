@@ -24,13 +24,12 @@ my $marker;
 my $marker_format;
 my $consensus;
 my $consensus_format;
-my $window_size_string;
-my @window_sizes;
+my $window_size;
 my $window_step;
 
 my $filter_min_marker;
 my $filter_min_coverage;
-my $filter_errors;
+#my $filter_errors;
 
 my $outlier_window_size;
 my $outlier_pvalue;
@@ -48,6 +47,8 @@ my $background2;
 my $verbose;
 
 my $runid;
+my $r_max;
+my $boost_max;
 
 ### Additional global variables ############################################################## 
 
@@ -68,104 +69,117 @@ my %CHR2POS2ERROR_COUNT = ();
 read_allele_counts(); 
 
 
+### Print allele counts
+
+my $outputfile = $out_folder."/SHOREmap.winsize1.txt";
+open OUT, "> ".$outputfile or die "Cannot open outputfile\n";
+
+foreach my $chr (sort {$a cmp $b} keys %CHR2POS2ALLELE1_COUNT) {
+	foreach my $pos (sort {$a <=> $b} keys %{$CHR2POS2ALLELE1_COUNT{$chr}}) {
+		print OUT $chr, "\t", $pos, "\t", $CHR2POS2ALLELE1_COUNT{$chr}{$pos}, "\t", $CHR2POS2ALLELE2_COUNT{$chr}{$pos}, "\t", $CHR2POS2ERROR_COUNT{$chr}{$pos}, "\n";
+	}
+}
+
+
+
 ### Create sliding windows ###################################################################
 
 # Set windowsizes
 
-my %WS2POS2FREQ = ();
+#my %WS2POS2FREQ = ();
 
-for (my $w = 0; $w < @window_sizes; $w++) {
-	my $window_size = $window_sizes[$w];
-	$window_step = $window_size;
-
-	print STDERR "Analyzing window size: ", $window_size, "\n" if $verbose == 1;
-	my $outputfile = $out_folder."/SHOREmap.winsize".$window_size.".txt";
-        open OUT, "> ".$outputfile or die "Cannot open outputfile\n";
-
-	foreach my $chr (sort {$a cmp $b} keys %CHR2POS2ALLELE1_COUNT) {
-	
-		my $last_report = 0;
-
-		# Window summary
-		my $marker_sum = 0;
-		my $allele1_sum = 0;
-                my $allele2_sum = 0;
-                my $error_sum = 0;
-
-		# Single marker data of current window
-		my @marker_pos = ();
-		my @allele1_counts = ();
-		my @allele2_counts = ();
-		my @error_counts = ();
-
-		foreach my $pos (sort {$a <=> $b} keys %{$CHR2POS2ALLELE1_COUNT{$chr}}) {
-
-			## remove markers that are not in the current window anymore
-	        	while(defined($marker_pos[0]) and $marker_pos[0] < $pos - $window_size + 1) {
-
-        	        	$marker_sum--;
-				if ($marker_sum < 0) {
-					$marker_sum = 0;
-				}
-		                $allele1_sum -= $allele1_counts[0];
-				if ($allele1_sum < 0) {
-					$allele1_sum = 0;
-				}
-        		        $allele2_sum -= $allele2_counts[0];
-				if ($allele2_sum < 0) {
-					$allele2_sum = 0;
-				}
-				$error_sum -= $error_counts[0];
-                                if ($error_sum < 0) {
-                                        $error_sum = 0;
-                                }			
-
-				shift @marker_pos;
-				shift @allele1_counts;
-				shift @allele2_counts;
-				shift @error_counts;
-        		}
-
-			# add new value
-			$marker_sum++;
-	        	$allele1_sum += $CHR2POS2ALLELE1_COUNT{$chr}{$pos};
-	        	$allele2_sum += $CHR2POS2ALLELE2_COUNT{$chr}{$pos};
-			$error_sum += $CHR2POS2ERROR_COUNT{$chr}{$pos};
-
-			# store new values
-			push @marker_pos, $pos;
-			push @allele1_counts, $CHR2POS2ALLELE1_COUNT{$chr}{$pos};
-			push @allele2_counts, $CHR2POS2ALLELE2_COUNT{$chr}{$pos};
-			push @error_counts, $CHR2POS2ERROR_COUNT{$chr}{$pos};
-
-			if ($marker_sum!= 0) {
-
-				# Calc where to report current window
-				my $report_pos = int($pos- (($pos-$marker_pos[0]) / 2));
-	
-				# If current window distant enough to the last report (step size)
-				# and if there are enough marker in the current window
-
-				if (($report_pos > $last_report + $window_step - 1) and
-                	    	    ($filter_min_marker <= $marker_sum or $window_size == 1)) 
-				{
-
-					#my $boost = get_boost($allele1_sum, $allele2_sum);
-					print OUT $chr, "\t", $report_pos, "\t", $allele1_sum, "\t", $allele2_sum, "\t", $error_sum, "\n"; #, $boost, "\n";
-
-					$last_report = $report_pos;
-
-				}
-                	}
-		}
-        }
-
-	close OUT;
-}
+#for (my $w = 0; $w < @window_sizes; $w++) {
+# 	$window_size = $window_sizes[$w];
+# 	$window_step = $window_size;
+# 
+# 	print STDERR "Parsing marker-wise AFE.\n" if $verbose == 1;
+# 	my $outputfile = $out_folder."/SHOREmap.winsize1.txt";
+#         open OUT, "> ".$outputfile or die "Cannot open outputfile\n";
+# 
+# 	foreach my $chr (sort {$a cmp $b} keys %CHR2POS2ALLELE1_COUNT) {
+# 	
+# 		my $last_report = 0;
+# 
+# 		# Window summary
+# 		my $marker_sum = 0;
+# 		my $allele1_sum = 0;
+#                 my $allele2_sum = 0;
+#                 my $error_sum = 0;
+# 
+# 		# Single marker data of current window
+# 		my @marker_pos = ();
+# 		my @allele1_counts = ();
+# 		my @allele2_counts = ();
+# 		my @error_counts = ();
+# 
+# 		foreach my $pos (sort {$a <=> $b} keys %{$CHR2POS2ALLELE1_COUNT{$chr}}) {
+# 
+# 			## remove markers that are not in the current window anymore
+# 	        	while(defined($marker_pos[0]) and $marker_pos[0] < $pos - $window_size + 1) {
+# 
+#         	        	$marker_sum--;
+# 				if ($marker_sum < 0) {
+# 					$marker_sum = 0;
+# 				}
+# 		                $allele1_sum -= $allele1_counts[0];
+# 				if ($allele1_sum < 0) {
+# 					$allele1_sum = 0;
+# 				}
+#         		        $allele2_sum -= $allele2_counts[0];
+# 				if ($allele2_sum < 0) {
+# 					$allele2_sum = 0;
+# 				}
+# 				$error_sum -= $error_counts[0];
+#                                 if ($error_sum < 0) {
+#                                         $error_sum = 0;
+#                                 }			
+# 
+# 				shift @marker_pos;
+# 				shift @allele1_counts;
+# 				shift @allele2_counts;
+# 				shift @error_counts;
+#         		}
+# 
+# 			# add new value
+# 			$marker_sum++;
+# 	        	$allele1_sum += $CHR2POS2ALLELE1_COUNT{$chr}{$pos};
+# 	        	$allele2_sum += $CHR2POS2ALLELE2_COUNT{$chr}{$pos};
+# 			$error_sum += $CHR2POS2ERROR_COUNT{$chr}{$pos};
+# 
+# 			# store new values
+# 			push @marker_pos, $pos;
+# 			push @allele1_counts, $CHR2POS2ALLELE1_COUNT{$chr}{$pos};
+# 			push @allele2_counts, $CHR2POS2ALLELE2_COUNT{$chr}{$pos};
+# 			push @error_counts, $CHR2POS2ERROR_COUNT{$chr}{$pos};
+# 
+# 			if ($marker_sum!= 0) {
+# 
+# 				# Calc where to report current window
+# 				my $report_pos = int($pos- (($pos-$marker_pos[0]) / 2));
+# 	
+# 				# If current window distant enough to the last report (step size)
+# 				# and if there are enough marker in the current window
+# 
+# 				if (($report_pos > $last_report + $window_step - 1) and
+#                 	    	    ($filter_min_marker <= $marker_sum or $window_size == 1)) 
+# 				{
+# 
+# 					#my $boost = get_boost($allele1_sum, $allele2_sum);
+# 					print OUT $chr, "\t", $report_pos, "\t", $allele1_sum, "\t", $allele2_sum, "\t", $error_sum, "\n"; #, $boost, "\n";
+# 
+# 					$last_report = $report_pos;
+# 
+# 				}
+#                 	}
+# 		}
+#         }
+# 
+# 	close OUT;
+#}
 
 
 my $pdffile = "$out_folder/SHOREmap.pdf";
-my $cmd = "R --slave --vanilla --args $expect $chrsizes $pdffile $out_folder/SHOREmap.zoom_region.txt $out_folder/SHOREmap.window_sizes.txt $window_step $FindBin::Bin $out_folder $outlier_window_size $outlier_pvalue $confidence $misphenotyped $runid < ".$FindBin::Bin."/SHOREmap_plot.R"; # 2> /dev/null";
+my $cmd = "R --slave --vanilla --args $expect $chrsizes $pdffile $out_folder/SHOREmap.zoom_region.txt $window_size $window_step $FindBin::Bin $out_folder $outlier_window_size $outlier_pvalue $confidence $misphenotyped $filter_min_marker $filter_min_coverage $r_max $boost_max $runid < ".$FindBin::Bin."/SHOREmap_plot.R"; # 2> /dev/null";
 print STDERR $cmd, "\n" if $verbose == 1;
 system($cmd);
 
@@ -273,13 +287,13 @@ sub read_allele_counts {
 				
 			}
 
-			if (	$coverage >= $filter_min_coverage and
-				($filter_errors == 0 or $count_error < $count_lower_allele or $count_error < 0.2 * $count_higher_allele)
-			) {
+			#if (	$coverage >= $filter_min_coverage and
+			#	($filter_errors == 0 or $count_error < $count_lower_allele or $count_error < 0.2 * $count_higher_allele)
+			#) {
 	        	        $CHR2POS2ALLELE1_COUNT{$chromosome}{$position} = $count_allele1;
         	        	$CHR2POS2ALLELE2_COUNT{$chromosome}{$position} = $count_allele2;
 	        	        $CHR2POS2ERROR_COUNT{$chromosome}{$position} = $count_error;
-			}
+			#}
         	}
 	}
 
@@ -382,7 +396,7 @@ sub write_log {
 
 	open FILE, ">$out_folder/SHOREmap.log";
 
-	print FILE "# $0 --target $expect --chrsizes $chrsizes --folder $out_folder --marker $marker --marker-format $marker_format --consen $consensus --consen-format $consensus_format --window-size $window_size_string --mis-phenotyped $misphenotyped "; #,join(",",@window_sizes);, " --window-step $window_step ";
+	print FILE "# perl $0 --target $expect --chrsizes $chrsizes --folder $out_folder --marker $marker --marker-format $marker_format --consen $consensus --consen-format $consensus_format --window-size $window_size --window-step $window_step --mis-phenotyped $misphenotyped --min-marker $filter_min_marker --min-coverage $filter_min_coverage --outlier-window-size $outlier_window_size --outlier-pvalue $outlier_pvalue ";
 
 	if ($confidence == 2) {
 		print FILE "-no-interval ";
@@ -391,15 +405,6 @@ sub write_log {
 		print FILE "--conf $confidence ";
 	}
 
-	if ($filter_min_marker > 0) {
-		print FILE "--min-marker $filter_min_marker ";
-	}
-	if ($filter_min_coverage > 0) {
-                print FILE "--min-coverage $filter_min_coverage ";
-        }
-	if ($filter_errors > 0) {
-                print FILE "--filter-errors $filter_errors ";
-        }
 	if ($reg_chromosome ne "") {
 		print FILE "--chromosome $reg_chromosome --begin $reg_begin --end $reg_end --minfreq $reg_freq_min --maxfreq $reg_freq_max ";
 	}
@@ -415,14 +420,6 @@ sub write_log {
 
 	print FILE "\n";
 		
-	close FILE;
-}
-
-sub write_window_sizes {
-	open FILE, "> ".$out_folder."/SHOREmap.window_sizes.txt" or die "Cannot open file $out_folder/SHOREmap.window_sizes.txt\n";
-	foreach my $ws (sort {$a <=> $b} @window_sizes) {
-		print FILE "$ws\n";
-	}
 	close FILE;
 }
 
@@ -458,7 +455,7 @@ Mandatory:
 --target                DOUBLE   Target allele frequency 
                                  (default: 1.0)
 --conf                  DOUBLE   Confidence level
-                                 (default: 0.95)
+                                 (default: 0.99)
 --chrsizes              STRING   Chromosome sizes file
 --folder                STRING   Output folder
 --marker                STRING   Marker file
@@ -467,22 +464,26 @@ Mandatory:
 --consen                STRING   Consensus file 
 --consen-format         STRING   Consensus file format, \"shore\" 
                                  or \"tab\" (default: \"shore\")
---window-size           STRING   Smoothed visulization
-                                 (default: \"25000\")
+
+Sliding window:
+--window-size           INT      (default: 50000)
+--window-step           INT      (default: 10000)
+
+                                 Used for smoothed visulization,
+                                 initial peak finding 
+                                 and boost calculation
 
 Filter:
 --min-marker            INT      Filter windows with low numbers 
-                                 of markers (default: not set)
+                                 of markers (default: 10)
 --min-coverage          INT      Filter single marker with low 
-                                 average coverage (default: not 
-                                 set)
--filter-errors                   Filter markers with obvious 
-                                 errors (default: not set)
+                                 average coverage (default: 0)
 --outlier-window-size   INT      Window size to assess local
                                  allele frequency used for 
-                                 outlier removal
+                                 outlier removal 
+                                 (default: 200000)
 --outlier-pvalue        DOUBLE   p-value used for outlier
-                                 removal
+                                 removal (default: 0.05)
 
 Phenotyping:
 --mis-phenotyped        DOUBLE   Degree of putatively
@@ -496,16 +497,19 @@ Zooming:
 --minfreq               INT      .. minimal to ..
 --maxfreq               INT      .. maximal frequency.
 
+
 Optional:
 --referrors             STRING   Reference errors file
---runid                 INT      Debug
--background2                     Mutation in second parent
--no-interval                     Switch of confidence interval
+-background2                     Mutation is in second parent
+-no-interval                     Switch off confidence interval
                                  calculation
 -verbose                         Be talkative
 
 See documentation for file formats.
 ");
+
+## HIDDEN FLAG
+# boost max, r max, runid
 
 	$expect = 1.0;
 	$confidence = 0.99;
@@ -515,12 +519,11 @@ See documentation for file formats.
 	$marker_format = "shore";
 	$consensus = "";
 	$consensus_format = "shore";
-	$window_size_string = "25000";
-	$window_step = 25000;
+	$window_size = "50000";
+	$window_step = 10000;
 
 	$filter_min_marker = 0;
 	$filter_min_coverage = 0;
-	$filter_errors = 0;
 
 	$outlier_window_size = 200000;
 	$outlier_pvalue = 0.05;
@@ -537,6 +540,9 @@ See documentation for file formats.
 	$background2 = 0;
 	$verbose = 0;	
 
+	$boost_max = 1000;
+	$r_max = 1000;
+
 	$runid = 1;
 
 	if (@ARGV+0 == 0) {
@@ -544,7 +550,8 @@ See documentation for file formats.
 		exit(0);
 	}
 
-        GetOptions(\%CMD, "target=f", "conf=f", "chrsizes=s", "folder=s", "marker=s", "marker-format=s", "consen=s", "consen-format=s", "min-marker=i", "min-coverage=i", "filter-errors", "mis-phenotyped=f", "chromosome=i", "begin=i", "end=i", "minfreq=f", "maxfreq=f", "verbose", "background2", "referrors=s", "outlier-window-size=i", "outlier-pvalue=f", "window-size=s", "no-interval", "runid=i"); #, "window-step=i");
+        GetOptions(\%CMD, "target=f", "conf=f", "chrsizes=s", "folder=s", "marker=s", "marker-format=s", "consen=s", "consen-format=s", "window-size=i", "window-step=i", "min-marker=i", "min-coverage=i", "outlier-window-size=i", "outlier-pvalue=f", "mis-phenotyped=f", "chromosome=i", "begin=i", "end=i", "minfreq=f", "maxfreq=f", "verbose", "background2", "referrors=s", "no-interval", "runid=i", "boost-max=i", "r-max=i"); 
+
 
         die("Please specify chromosome sizes file\n") unless defined($CMD{chrsizes});
         die("Please specify output folder\n") unless defined($CMD{folder});
@@ -622,28 +629,16 @@ See documentation for file formats.
         }
 
 	if (defined($CMD{"window-size"})) {
-                $window_size_string = $CMD{"window-size"};
+                $window_size = $CMD{"window-size"};
 	}
-	# MULTIPLE:
-	#my @a = split ",", $window_size_string;
-	#foreach my $e (@a) {
-	#	if ($e =~ m/[^0-9.]/ ) { die("Window size is not numeric ($e).\n");}
-	#	if ($e < 1) { die("Window size smaller than 1 not valid ($e).\n");}
-	#}
-	#@window_sizes = sort {$a <=> $b} @a;
-	# ONE:
-	if ($window_size_string =~ m/[^0-9.]/ ) { die("Window size is not numeric ($window_size_string).\n");}
-        if ($window_size_string < 1) { die("Window size smaller than 1 not valid ($window_size_string).\n");}
-	push @window_sizes, $window_size_string;
-	if ($window_sizes[0] != 1) {
-		unshift @window_sizes, 1;
-	}
+	if ($window_size =~ m/[^0-9.]/ ) { die("Window size is not numeric ($window_size).\n");}
+        if ($window_size <= 1) { die("Window size must be larger than 1 ($window_size).\n");}
 
-	#if (defined($CMD{"window-step"})) {
-	#	$window_step = $CMD{"window-step"};
-	#	if ($window_step =~ m/[^0-9.]/ ) { die("Window step size is not numeric ($window_step).\n");}
-	#	if ($window_step < 1) { die("Window step size smaller than 1 not valid ($window_step).\n");}
-	#}
+	if (defined($CMD{"window-step"})) {
+		$window_step = $CMD{"window-step"};
+		if ($window_step =~ m/[^0-9.]/ ) { die("Window step size is not numeric ($window_step).\n");}
+		if ($window_step < 1) { die("Window step size smaller than 1 not valid ($window_step).\n");}
+	}
 
 	if (defined($CMD{"min-marker"})) {
                 $filter_min_marker = $CMD{"min-marker"};
@@ -655,16 +650,14 @@ See documentation for file formats.
                 if ($filter_min_coverage =~ m/[^0-9.]/ ) { die("Minimal coverage is not numeric ($filter_min_coverage).\n");}
         }
 
-	if (defined($CMD{"filter-errors"})) {
-                $filter_errors = 1;
-        }
-
 	if (defined($CMD{"outlier-window-size"})) {
                 $outlier_window_size = $CMD{"outlier-window-size"};
+                if ($outlier_window_size =~ m/[^0-9.]/ ) { die("Outlier window size is not numeric ($outlier_window_size).\n");}
         }
 
 	if (defined($CMD{"outlier-pvalue"})) {
                 $outlier_pvalue = $CMD{"outlier-pvalue"};
+                if ($outlier_pvalue =~ m/[^0-9.]/ ) { die("Outlier p-value is not numeric ($outlier_pvalue).\n");}
         }
 
 	if (defined($CMD{"mis-phenotyped"})) {
@@ -709,6 +702,14 @@ See documentation for file formats.
 
         if (defined($CMD{"runid"})) {
                 $runid = $CMD{"runid"};
+        }
+
+	if (defined($CMD{"boost-max"})) {
+                $boost_max = $CMD{"boost-max"};
+        }
+
+	if (defined($CMD{"r-max"})) {
+                $r_max = $CMD{"r-max"};
         }
 
 	####################################################################################

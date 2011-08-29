@@ -7,15 +7,20 @@ target<-args[5] # todo set type
 chrsize<-read.table(args[6])
 fpdf<-args[7]
 zoomf<-args[8] # todo check for existance
-windowsizes<-read.table(args[9], as.is=c(1))
+#windowsizes<-read.table(args[9], as.is=c(1))
+winsize<-as.numeric(args[9])
 winstep<-as.numeric(args[10])
 path<-args[11]
 outputpath<-args[12]
-filterOutliers<-args[13] # size of window around marker for outlier assessment
-filterPValue<-args[14] # p-value for outlier removal
-conf_level<-args[15]
-misscored<-args[16]
-runid<-args[17]
+filterOutliers<-as.numeric(args[13]) # size of window around marker for outlier assessment
+filterPValue<-as.numeric(args[14]) # p-value for outlier removal
+conf_level<-as.numeric(args[15])
+misscored<-as.numeric(args[16])
+minMarker<-as.numeric(args[17])
+minCov<-as.numeric(rgs[18])
+rMax<-as.numeric(args[19])
+boostMax<-as.numeric(args[20])
+runid<-as.numeric(args[21])
 
 ##########################################
 # Load libraries
@@ -49,156 +54,136 @@ layoutmat=matrix(data=layoutdat, ncol=1, nrow=2) #*length(windowsizes$V1))
 layout(layoutmat)
 
 options(scipen=999999999)
-ls=5000000
+ls_default=5000000
 max=1
 
 ##########################################
 # Source confidence interval stats
 
-if (conf_level != 2) {
-	source(paste(path,"SHOREmap_confInt.R", sep="/"))
-}
+source(paste(path,"SHOREmap_confInt.R", sep="/"))
 
 ##########################################
 # Plotting
 
+data<-read.table(paste(outputpath, "/SHOREmap.winsize1.txt", sep=""), as.is=c(1))
+
 for (chr in 1:(length(chrsize$V1))) {
 
 	chrname=chrsize$V1[chr]
+	ls = min(ls_default, chrsize$V2[chr])
 
 	if (z_chr == -1 || chrname == z_chr) {
 
-		for (winsize_i in 1:(length(windowsizes$V1))) {
-	
-			winsize=windowsizes$V1[winsize_i]
-			data<-read.table(paste(outputpath, "/SHOREmap.winsize", winsize, ".txt", sep=""), as.is=c(1))
+		if (length(data$V2[data$V1[]==chrname])!= 0) {
 
-			if (length(data$V2[data$V1[]==chrname])!= 0) {
+			# Set up plot data
+			freq = data$V3[data$V1[]==chrname] / ( data$V3[data$V1[]==chrname] + data$V4[data$V1[]==chrname] )
 
-				# Set up plot data
-				freq = data$V3[data$V1[]==chrname] / ( data$V3[data$V1[]==chrname] + data$V4[data$V1[]==chrname] )
+			# Calc confidence interval
+       		        ciData<- data[data[,1]==chrname,]
+	       		ci_chromosome<-ciData[,1]
+       	        	ci_positions<-ciData[,2]
+       		        ci_background_count<-ciData[,4]
+       	        	ci_forground_count<-ciData[,3]
+        	        ci_error_count<-ciData[,5]
+	        	ci_result<-ShoreMap.confint(ci_chromosome, ci_positions, ci_background_count, ci_forground_count, ci_error_count, foreground_frequency=target, level=conf_level, recurse=F, forceInclude=T, allowAdjustment=misscored, filterOutliers=filterOutliers, filterPValue=filterPValue,winSize=winsize,winStep=winstep,minMarker=minMarker,minCoverage=minCov)
 
-				if (winsize == 1 && conf_level != 2) {
-					# Calc confidence interval
-	        		        ciData<- data[data[,1]==chrname,]
-        	        		ci_chromosome<-ciData[,1]
-	        	        	ci_positions<-ciData[,2]
-	        		        ci_background_count<-ciData[,4]
-	        	        	ci_forground_count<-ciData[,3]
-		        	        ci_error_count<-ciData[,5]
-        		        	ci_result<-ShoreMap.confint(ci_chromosome, ci_positions, ci_background_count, ci_forground_count, ci_error_count, foreground_frequency=target, level=conf_level, recurse=F, forceInclude=T, allowAdjustment=misscored, filterOutliers=filterOutliers, filterPValue=filterPValue,winSize=50000,winStep=10000,minMarker=10,minCoverage=0)
-
-	        	        	ci<-ci_result$confidenceInterval
-        	                	ci_filtered <- ci_positions %in% ci_result$excluded 
-        	                	#for plotting the windowed markers
-					ci_avgPosFreq <- ci_result$averaged
-				}
+                	ci<-ci_result$confidenceInterval
+       	               	ci_filtered <- ci_positions %in% ci_result$excluded 
+       	               	#for plotting the windowed markers
+			ci_avgPosFreq <- ci_result$averaged
 
 
-				########################################################
+			########################################################
 
-				# Plot frequencies
-				y_min = 0
-				y_max = 1.0
-				x_min = 1
-				x_max = max(chrsize$V2)
+			# Plot frequencies
+			y_min = 0
+			y_max = 1.0
+			x_min = 1
+			x_max = max(chrsize$V2)
 
-				if (z_chr != -1) {
-					y_min = z_min
-					y_max = z_max
-					x_min = z_beg
-					x_max = z_end	
-				}
+			if (z_chr != -1) {
+				y_min = z_min
+				y_max = z_max
+				x_min = z_beg
+				x_max = z_end	
+			}
 
 
-				if (winsize == 1) {
-					plot(data$V2[data$V1[]==chrname], freq, ylim=c(y_min, y_max+0.2), xlim=c(x_min, x_max), type="n", axes=F, xlab="", ylab="Allele Frequency", main=paste("Chromosome:", chrname, " (In black, window size of ", winstep, " bp.)", sep=""))
+			plot(data$V2[data$V1[]==chrname], freq, ylim=c(y_min, y_max+0.2), xlim=c(x_min, x_max), type="n", axes=F, xlab="", ylab="Allele Frequency", main=paste("Chromosome:", chrname, " (In black, window size of ", winstep, " bp.)", sep=""))
 			
-					for (bgl in seq(0.1, 1, 0.1)) {
-                		               	lines(c(1, chrsize$V2[chr]), c(bgl, bgl), col="lightgrey")
-                        		}
-				}
+			for (bgl in seq(0.1, 1, 0.1)) {
+       		               	lines(c(1, chrsize$V2[chr]), c(bgl, bgl), col="lightgrey")
+               		}
 	
-				if (winsize == 1) { 
-					points(data$V2[data$V1[]==chrname], freq, ylim=c(y_min, y_max+0.2), col=ifelse(conf_level!=2 & ci_filtered,"red", ifelse((length(windowsizes$V1) == 1), "black", "grey")), xlim=c(x_min, x_max), pch=20)
+			points(data$V2[data$V1[]==chrname], freq, ylim=c(y_min, y_max+0.2), col=ifelse(conf_level!=2 & ci_filtered,"red", ifelse((length(windowsizes$V1) == 1), "black", "grey")), xlim=c(x_min, x_max), pch=20)
 		
-					# Plot confidence interval
-					if (conf_level != 2 && ci[3, 1] <= 1) {
-               					for (ci_i in 1:(length(ci[1,]))) {
+			# Plot confidence interval
+			if (conf_level != 2 && ci[3, 1] <= 1) {
+       				for (ci_i in 1:(length(ci[1,]))) {
 				
-							rect(ci[1, ci_i], y_max+0.02, ci[2, ci_i], y_max+0.06, col="orange", border="orange")
+					rect(ci[1, ci_i], y_max+0.02, ci[2, ci_i], y_max+0.06, col="orange", border="orange")
 					
-							# add size
-							#size = ci[2, ci_i] - ci[1, ci_i] + 1
-							#text(c(ci[1, ci_i] + size/2), c(y_max+0.035), labels=c(paste(size, sep="")))
-							# add positions
-							text(c(ci[1, ci_i]), c(y_max+0.09), labels=c(paste(ci[1, ci_i], sep="")), pos=2)
-							text(c(ci[2, ci_i]), c(y_max+0.09), labels=c(paste(ci[2, ci_i], sep="")), pos=4)
-	        	        		}
-					}
-					else {
-						# Indicate that there is no interval
-					}
+					# add positions
+					text(c(ci[1, ci_i]), c(y_max+0.09), labels=c(paste(ci[1, ci_i], sep="")), pos=2)
+					text(c(ci[2, ci_i]), c(y_max+0.09), labels=c(paste(ci[2, ci_i], sep="")), pos=4)
+	        	       	}
+			}
+			else {
+				# Indicate that there is no interval
+			}
 			
 
-					# debug:
-					# Stig:
-					#abline(v=16702262, col="limegreen")
-					# Vini:
-					abline(v=18816001, col="limegreen")
-					# Qtl:
-					if(file.exists(paste("Sim.",runid,".qtl.txt", sep=""))) {
-						qtl<-read.table(paste("Sim.",runid,".qtl.txt", sep=""), header=F)
-						for (q in 1:(length(qtl$V3))) {
-							if (qtl$V3[q] == chrname) {
-								abline(v=qtl$V4[q])
-								#text(c(qtl$V4[q]), c((y_min+(y_max-y_min)/2)), labels=c(paste(round(qtl$V5), round(qtl$V6), sep=" ")))
-								text(c(qtl$V4[q]), c((y_min+(y_max-y_min)/2)), labels=c(paste(round(qtl$V5[q]), round(qtl$V6[q]), sep=" ")), col="green")
-							}
-						}
+			# debug:
+			# Stig:
+			#abline(v=16702262, col="limegreen")
+			# Vini:
+			abline(v=18816001, col="limegreen")
+			# Qtl:
+			if(file.exists(paste("Sim.",runid,".qtl.txt", sep=""))) {
+				qtl<-read.table(paste("Sim.",runid,".qtl.txt", sep=""), header=F)
+				for (q in 1:(length(qtl$V3))) {
+					if (qtl$V3[q] == chrname) {
+						abline(v=qtl$V4[q])
+						#text(c(qtl$V4[q]), c((y_min+(y_max-y_min)/2)), labels=c(paste(round(qtl$V5), round(qtl$V6), sep=" ")))
+						text(c(qtl$V4[q]), c((y_min+(y_max-y_min)/2)), labels=c(paste(round(qtl$V5[q]), round(qtl$V6[q]), sep=" ")), col="green")
 					}
-
-
-					ls_s = ls
-					if (ls > chrsize$V2[chrsize$V1[]==chrname]) { 
-						ls = chrsize$V2[chrsize$V1[]==chrname]
-					}
-				
-					labels=c(1, seq(ls, chrsize$V2[chrsize$V1[]==chrname], by=ls), chrsize$V2[chrsize$V1[]==chrname])
-					axis(1, label=labels, at=labels, col="lightgrey")
-					axis(2, las=1, labels=c(paste(y_min,sep=""), paste(y_max, sep="")), at=c(y_min, y_max), col="lightgrey")
-
-					ls = ls_s
-
-				}
-				else {
-                	                points(data$V2[data$V1[]==chrname], freq, ylim=c(y_min, y_max+0.2), col="black", xlim=c(x_min, x_max), pch=20)
-                        	}
-			}
-		}
-
-		#######################################################
-
-		# Plot support
-	
-		for (winsize_i in 1:(length(windowsizes$V1))) {
-
-                	winsize=windowsizes$V1[winsize_i]
-      		        data<-read.table(paste(outputpath, "/SHOREmap.winsize", winsize, ".txt", sep=""), as.is=c(1))
-
-			if (length(data$V2[data$V1[]==chrname])!= 0) {
-
-				if (winsize == 1) {
-
-					max_read = max(max(data$V3[data$V1[]==chrname]), max(data$V4[data$V1[]==chrname]))
-	
-					plot(data$V2[data$V1[]==chrname], data$V3[data$V1[]==chrname], type="h", col="darkblue", xlim=c(x_min, x_max), ylim=c((-1)*max_read, max_read), axes=F, ylab="Read count", xlab="")
-					points(data$V2[data$V1[]==chrname], (-1)*data$V4[data$V1[]==chrname], type="h", col="darkred");
-	
-					axis(1, label=labels, at=labels)
-					axis(2, las=1, labels=c(paste((-1)*max_read), "0", paste(max_read,sep="")), at=c((-1)*max_read, 0, max_read))
 				}
 			}
+
+
+			# Axes descriptions
+			labels=c(1, seq(ls, chrsize$V2[chrsize$V1[]==chrname], by=ls), chrsize$V2[chrsize$V1[]==chrname])
+			axis(1, label=labels, at=labels, col="lightgrey")
+			axis(2, las=1, labels=c(paste(y_min,sep=""), paste(y_max, sep="")), at=c(y_min, y_max), col="lightgrey")
+
+
+			# Sliding window
+           		points(data$V2[data$V1[]==chrname], freq, ylim=c(y_min, y_max+0.2), col="black", xlim=c(x_min, x_max), pch=20)
+
+
+			# boost
+
+
+			#r
+
+
+
+			#######################################################
+
+			# Plot support
+	
+	               	#winsize=windowsizes$V1[winsize_i]
+		        #data<-read.table(paste(outputpath, "/SHOREmap.winsize", winsize, ".txt", sep=""), as.is=c(1))
+
+
+			max_read = max(max(data$V3[data$V1[]==chrname]), max(data$V4[data$V1[]==chrname]))
+	
+			plot(data$V2[data$V1[]==chrname], data$V3[data$V1[]==chrname], type="h", col="darkblue", xlim=c(x_min, x_max), ylim=c((-1)*max_read, max_read), axes=F, ylab="Read count", xlab="")
+			points(data$V2[data$V1[]==chrname], (-1)*data$V4[data$V1[]==chrname], type="h", col="darkred");
+	
+			axis(1, label=labels, at=labels)
+			axis(2, las=1, labels=c(paste((-1)*max_read), "0", paste(max_read,sep="")), at=c((-1)*max_read, 0, max_read))
 		}
 	}
 }
