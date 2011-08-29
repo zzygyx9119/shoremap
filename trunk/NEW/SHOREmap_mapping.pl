@@ -48,7 +48,9 @@ my $verbose;
 
 my $runid;
 my $r_max;
+my $plot_r;
 my $boost_max;
+my $plot_boost;
 
 ### Additional global variables ############################################################## 
 
@@ -179,7 +181,7 @@ foreach my $chr (sort {$a cmp $b} keys %CHR2POS2ALLELE1_COUNT) {
 
 
 my $pdffile = "$out_folder/SHOREmap.pdf";
-my $cmd = "R --slave --vanilla --args $expect $chrsizes $pdffile $out_folder/SHOREmap.zoom_region.txt $window_size $window_step $FindBin::Bin $out_folder $outlier_window_size $outlier_pvalue $confidence $misphenotyped $filter_min_marker $filter_min_coverage $r_max $boost_max $runid < ".$FindBin::Bin."/SHOREmap_plot.R"; # 2> /dev/null";
+my $cmd = "R --slave --vanilla --args $expect $chrsizes $pdffile $out_folder/SHOREmap.zoom_region.txt $window_size $window_step $FindBin::Bin $out_folder $outlier_window_size $outlier_pvalue $confidence $misphenotyped $filter_min_marker $filter_min_coverage $r_max $plot_r $boost_max $plot_boost $runid < ".$FindBin::Bin."/SHOREmap_plot.R"; # 2> /dev/null";
 print STDERR $cmd, "\n" if $verbose == 1;
 system($cmd);
 
@@ -417,6 +419,12 @@ sub write_log {
 	if ($verbose != 0) {
 		print FILE "-verbose ";
 	}
+	if ($plot_boost != 0) {
+		print FILE "-plot_boost ";
+	}
+	if ($plot_r != 0) {
+                print FILE "-plot_r ";
+        }
 
 	print FILE "\n";
 		
@@ -500,6 +508,9 @@ Zooming:
 
 Optional:
 --referrors             STRING   Reference errors file
+-plot-r                          Plot frequency calculation (\"r\")
+-plot-boost                      Plot frequency calculation 
+                                 (\"boost\")
 -background2                     Mutation is in second parent
 -no-interval                     Switch off confidence interval
                                  calculation
@@ -541,7 +552,9 @@ See documentation for file formats.
 	$verbose = 0;	
 
 	$boost_max = 1000;
+	$plot_boost = 0;
 	$r_max = 1000;
+	$plot_r = 0;
 
 	$runid = 1;
 
@@ -550,7 +563,7 @@ See documentation for file formats.
 		exit(0);
 	}
 
-        GetOptions(\%CMD, "target=f", "conf=f", "chrsizes=s", "folder=s", "marker=s", "marker-format=s", "consen=s", "consen-format=s", "window-size=i", "window-step=i", "min-marker=i", "min-coverage=i", "outlier-window-size=i", "outlier-pvalue=f", "mis-phenotyped=f", "chromosome=i", "begin=i", "end=i", "minfreq=f", "maxfreq=f", "verbose", "background2", "referrors=s", "no-interval", "runid=i", "boost-max=i", "r-max=i"); 
+        GetOptions(\%CMD, "target=f", "conf=f", "chrsizes=s", "folder=s", "marker=s", "marker-format=s", "consen=s", "consen-format=s", "window-size=i", "window-step=i", "min-marker=i", "min-coverage=i", "outlier-window-size=i", "outlier-pvalue=f", "mis-phenotyped=f", "chromosome=i", "begin=i", "end=i", "minfreq=f", "maxfreq=f", "verbose", "background2", "referrors=s", "no-interval", "runid=i", "boost-max=i", "plot-boost", "r-max=i", "plot-r"); 
 
 
         die("Please specify chromosome sizes file\n") unless defined($CMD{chrsizes});
@@ -708,8 +721,16 @@ See documentation for file formats.
                 $boost_max = $CMD{"boost-max"};
         }
 
+	if (defined($CMD{"plot_boost"})) {
+                $plot_boost = 1;
+        }
+
 	if (defined($CMD{"r-max"})) {
                 $r_max = $CMD{"r-max"};
+        }
+
+	if (defined($CMD{"plot_r"})) {
+                $r_max = 1;
         }
 
 	####################################################################################

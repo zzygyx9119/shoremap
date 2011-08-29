@@ -17,10 +17,12 @@ filterPValue<-as.numeric(args[14]) # p-value for outlier removal
 conf_level<-as.numeric(args[15])
 misscored<-as.numeric(args[16])
 minMarker<-as.numeric(args[17])
-minCov<-as.numeric(rgs[18])
+minCov<-as.numeric(args[18])
 rMax<-as.numeric(args[19])
-boostMax<-as.numeric(args[20])
-runid<-as.numeric(args[21])
+plotR<-as.numeric(args[20])
+boostMax<-as.numeric(args[21])
+plotBoost<-as.numeric(args[22])
+runid<-as.numeric(args[23])
 
 ##########################################
 # Load libraries
@@ -49,8 +51,7 @@ if(file.exists(zoomf)) {
 
 pdf(file=fpdf, width=17, height=10) #*length(windowsizes$V1))
 #png(filename=fpdf, width=17, height=10, units="in", res=72) 
-layoutdat=seq(1, 2*length(windowsizes$V1))
-layoutmat=matrix(data=layoutdat, ncol=1, nrow=2) #*length(windowsizes$V1))
+layoutmat=matrix(data=c(1,2), ncol=1, nrow=2) #*length(windowsizes$V1))
 layout(layoutmat)
 
 options(scipen=999999999)
@@ -161,13 +162,15 @@ for (chr in 1:(length(chrsize$V1))) {
 			# Sliding window
            		points(ci_avgPosFreq[,1], ci_avgPosFreq[,2], ylim=c(y_min, y_max+0.2), col="black", xlim=c(x_min, x_max), pch=20)
 
-
 			# boost
-           		lines(ci_avgPosFreq[,1], ci_avgPosFreq[,3],col="blue")
+			if (plot_boost == 1) {
+	           		lines(ci_avgPosFreq[,1], ci_avgPosFreq[,3],col="blue")
+			}
 
 			#r
-           		lines(ci_avgPosFreq[,1], ci_avgPosFreq[,4],col="green")
-
+			if (plot_r == 1) {
+	           		lines(ci_avgPosFreq[,1], ci_avgPosFreq[,4],col="green")
+			}
 
 			#######################################################
 
