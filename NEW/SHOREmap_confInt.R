@@ -34,9 +34,9 @@ ShoreMap.confint <- function(chromosome,positions, background_count, foreground_
  assign("dataset_shoremapmle",internalData,".GlobalEnv")
  freqs<-internalData[,3]/rowSums(internalData[,3:5])
  assign("i_shoremapmle",0,".GlobalEnv")
- minWindow<-minMarker
+ minWindow<-max(minMarker,2)
 # bestsize<- ceiling((max(table(sapply(2:length(freqs),function(x) if(freqs[x]==freqs[x-1]){i_shoremapmle}else{assign("i_shoremapmle",i_shoremapmle+1,".GlobalEnv");i_shoremapmle})))+1)/5)*5
- bestsize<-minMarker
+ bestsize<-max(minMarker,2)
  bestsize<-max(bestsize,minWindow)
 # print(paste("Bestsize:",bestsize))
  if(bestsize<length(dataset_shoremapmle[,1])){
