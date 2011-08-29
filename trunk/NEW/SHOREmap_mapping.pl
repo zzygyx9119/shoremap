@@ -716,7 +716,6 @@ See documentation for file formats.
 
 	mkdir($out_folder);
 	write_log();
-	write_window_sizes();
 	write_zoom_region();
 	
 
