@@ -8,7 +8,7 @@
 require(bbmle)
 require(EMT)
 
-ShoreMap.confint <- function(chromosome,positions, background_count, foreground_count, error_count, foreground_frequency=1, level=0.99, recurse=FALSE, forceInclude=TRUE, allowAdjustment=0.0, filterOutliers=200000, filterPValue=0.05,winSize=50000,winStep=10000,minMarker=10,minCoverage=0) {
+ShoreMap.confint <- function(chromosome,positions, background_count, foreground_count, error_count, foreground_frequency=1, level=0.99, recurse=FALSE, forceInclude=TRUE, allowAdjustment=0.0, filterOutliers=200000, filterPValue=0.05,winSize=50000,winStep=10000,minMarker=10,minCoverage=0,Rmax=1e5,boostmax=1e5) {
 # allowAdjustment=0.0
 # minMarker=10
 # level<-c(0.95,0.99,0.999)
@@ -47,8 +47,20 @@ ShoreMap.confint <- function(chromosome,positions, background_count, foreground_
    windows<- floor((internalData[,2]+shift)/winSize)
    windowsToUse<- windows %in% unique(windows)[table(windows)>minMarker]
    tapply(internalData[windowsToUse,3],windows[windowsToUse],sum)/tapply(rowSums(internalData[windowsToUse,3:5]),windows[windowsToUse],sum)
+  }),recursive=TRUE)  
+  avg_R<-c(sapply(seq(0,winSize-1,winStep),function(shift){
+   windows<- floor((internalData[,2]+shift)/winSize)
+   windowsToUse<- windows %in% unique(windows)[table(windows)>minMarker]
+   allele<-tapply(internalData[windowsToUse,3],windows[windowsToUse],sum)
+   ref<-tapply(internalData[windowsToUse,4],windows[windowsToUse],sum)
+   ret<-pmax(allele/ref,ref/allele)
+   ret[ret==1]<-0
+   ret[ret>Rmax]<-Rmax
+   ret/max(ret)
   }),recursive=TRUE)
-  avg_posFreq<-cbind(avg_pos,avg_freq)
+  avg_boost<-pmin(boostmax,abs(1/(1-foreground_frequency/pmax(avg_freq,1-avg_freq))))
+  avg_boost<-avg_boost/max(avg_boost)
+  avg_posFreq<-cbind(avg_pos,avg_freq,avg)
   avg_posFreq<-t(sapply(sort(avg_posFreq[,1],index.return=T)$ix,function(x) avg_posFreq[x,]))
   avg_minIndex<-which(min(abs(avg_posFreq[,2]-foreground_frequency))==abs(avg_posFreq[,2]-foreground_frequency))
 
