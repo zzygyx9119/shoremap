@@ -508,7 +508,7 @@ See documentation for file formats.
 ");
 
 	$expect = 1.0;
-	$confidence = 0.95;
+	$confidence = 0.99;
 	$chrsizes = "";
 	$out_folder = "";
 	$marker = "";
