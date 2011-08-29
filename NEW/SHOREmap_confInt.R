@@ -58,10 +58,10 @@ ShoreMap.confint <- function(chromosome,positions, background_count, foreground_
    ret<-pmax(allele/ref,ref/allele)
    ret[ret==1]<-0
    ret[ret>rMax]<-rMax
-   ret/max(ret)
+   ret
   }),recursive=TRUE)
   avg_boost<-pmin(boostMax,abs(1/(1-foreground_frequency/pmax(avg_freq,1-avg_freq))))
-  avg_boost<-avg_boost/max(avg_boost)
+#  avg_boost<-avg_boost/max(avg_boost)
   avg_posFreq<-cbind(avg_pos,avg_freq,avg_boost,avg_R)
   avg_posFreq<-t(sapply(sort(avg_posFreq[,1],index.return=T)$ix,function(x) avg_posFreq[x,]))
   #avg_minIndex<-which(min(abs(avg_posFreq[,2]-foreground_frequency))==abs(avg_posFreq[,2]-foreground_frequency))

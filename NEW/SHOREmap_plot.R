@@ -68,6 +68,22 @@ source(paste(path,"SHOREmap_confInt.R", sep="/"))
 
 data<-read.table(paste(outputpath, "/SHOREmap.winsize1.txt", sep=""), as.is=c(1))
 
+realRmax<-0
+realBoostmax<-0
+
+for (chr in 1:(length(chrsize$V1))) {
+	chrname=chrsize$V1[chr]
+        ciData<- data[data[,1]==chrname,]
+	ci_chromosome<-ciData[,1]
+       	ci_positions<-ciData[,2]
+        ci_background_count<-ciData[,4]
+    	ci_forground_count<-ciData[,3]
+        ci_error_count<-ciData[,5]
+      	ci_result<-ShoreMap.confint(ci_chromosome, ci_positions, ci_background_count, ci_forground_count, ci_error_count, foreground_frequency=target, level=2, recurse=F, forceInclude=T, allowAdjustment=misscored, filterOutliers=0, filterPValue=filterPValue,winSize=winsize,winStep=winstep,minMarker=minMarker,minCoverage=minCov,peakFinding=3,rMax=rMax,boostMax=boostMax)
+	realBoostmax<-max(ci_result$averaged[,3])
+	realRmax<-max(ci_result$averaged[,4])
+}
+
 for (chr in 1:(length(chrsize$V1))) {
 
 	chrname=chrsize$V1[chr]
@@ -164,12 +180,12 @@ for (chr in 1:(length(chrsize$V1))) {
 
 			# boost
 			if (plot_boost == 1) {
-	           		lines(ci_avgPosFreq[,1], ci_avgPosFreq[,3],col="blue")
+	           		lines(ci_avgPosFreq[,1], ci_avgPosFreq[,3]/realBoostmax,col="blue")
 			}
 
 			#r
 			if (plot_r == 1) {
-	           		lines(ci_avgPosFreq[,1], ci_avgPosFreq[,4],col="green")
+	           		lines(ci_avgPosFreq[,1], ci_avgPosFreq[,4]/realRmax,col="green")
 			}
 
 			#######################################################
