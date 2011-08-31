@@ -104,7 +104,7 @@ ShoreMap.confint <- function(chromosome,positions, background_count, foreground_
    peak_posFreq<-t(sapply(sort(peak_posFreq[,1],index.return=T)$ix,function(x) peak_posFreq[x,]))
 
    peak_minIndex<-which(peak_posFreq[,peakFinding]==max(peak_posFreq[,peakFinding]))
-   print(paste("Finding initial peak(s).. choosen method in a window of size ",peakWinSize," bp",sep=""))
+   print(paste("Finding initial peak(s).. choosen method in a window of size ",peakWinSize," bp with step size of ", peakWinStep, " bp",sep=""))
 
    for(index in peak_minIndex){
     print(paste("   At (avg(pos) in window): ",round(peak_posFreq[index,1])," bp",sep=""))

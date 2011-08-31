@@ -401,7 +401,7 @@ sub write_log {
 
 	open FILE, ">$out_folder/SHOREmap.log";
 
-	print FILE "# perl $0 --target $expect --chrsizes $chrsizes --folder $out_folder --marker $marker --marker-format $marker_format --consen $consensus --consen-format $consensus_format --window-size $window_size --window-step $window_step --mis-phenotyped $misphenotyped --min-marker $filter_min_marker --min-coverage $filter_min_coverage --outlier-window-size $outlier_window_size --outlier-pvalue $outlier_pvalue ";
+	print FILE "# perl $0 --target $expect --chrsizes $chrsizes --folder $out_folder --marker $marker --marker-format $marker_format --consen $consensus --consen-format $consensus_format --window-size $window_size --window-step $window_step --mis-phenotyped $misphenotyped --min-marker $filter_min_marker --min-coverage $filter_min_coverage --outlier-window-size $outlier_window_size --outlier-pvalue $outlier_pvalue --peak-window-size $peak_window_size --peak-window-step $peak_window_step ";
 
 	if ($confidence == 2) {
 		print FILE "-no-interval ";
@@ -573,7 +573,7 @@ See documentation for file formats.
 		exit(0);
 	}
 
-        GetOptions(\%CMD, "target=f", "conf=f", "chrsizes=s", "folder=s", "marker=s", "marker-format=s", "consen=s", "consen-format=s", "window-size=i", "window-step=i", "min-marker=i", "min-coverage=i", "outlier-window-size=i", "outlier-pvalue=f", "mis-phenotyped=f", "chromosome=i", "begin=i", "end=i", "minfreq=f", "maxfreq=f", "verbose", "background2", "referrors=s", "no-interval", "runid=i", "boost-max=i", "plot-boost", "r-max=i", "plot-r"); 
+        GetOptions(\%CMD, "target=f", "conf=f", "chrsizes=s", "folder=s", "marker=s", "marker-format=s", "consen=s", "consen-format=s", "window-size=i", "window-step=i", "min-marker=i", "min-coverage=i", "outlier-window-size=i", "outlier-pvalue=f", "mis-phenotyped=f", "chromosome=i", "begin=i", "end=i", "minfreq=f", "maxfreq=f", "verbose", "background2", "referrors=s", "no-interval", "runid=i", "boost-max=i", "plot-boost", "r-max=i", "plot-r", "peak-window-size=i", "peak-window-step=i"); 
 
 
         die("Please specify chromosome sizes file\n") unless defined($CMD{chrsizes});
@@ -662,6 +662,19 @@ See documentation for file formats.
 		if ($window_step =~ m/[^0-9.]/ ) { die("Window step size is not numeric ($window_step).\n");}
 		if ($window_step < 1) { die("Window step size smaller than 1 not valid ($window_step).\n");}
 	}
+
+	if (defined($CMD{"peak-window-size"})) {
+                $peak_window_size = $CMD{"peak-window-size"};
+        }
+        if ($peak_window_size =~ m/[^0-9.]/ ) { die("Window size is not numeric ($peak_window_size).\n");}
+        if ($peak_window_size <= 1) { die("Window size must be larger than 1 ($peak_window_size).\n");}
+
+        if (defined($CMD{"peak-window-step"})) {
+                $peak_window_step = $CMD{"peak-window-step"};
+print "HERE: $peak_window_step \n";
+                if ($peak_window_step =~ m/[^0-9.]/ ) { die("Window step size is not numeric ($peak_window_step).\n");}
+                if ($peak_window_step < 1) { die("Window step size smaller than 1 not valid ($peak_window_step).\n");}
+        }
 
 	if (defined($CMD{"min-marker"})) {
                 $filter_min_marker = $CMD{"min-marker"};

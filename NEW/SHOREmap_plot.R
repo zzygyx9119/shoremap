@@ -22,8 +22,8 @@ rMax<-as.numeric(args[19])
 plotR<-as.numeric(args[20])
 boostMax<-as.numeric(args[21])
 plotBoost<-as.numeric(args[22])
-peakwinsize<-as.numeric(arge[23])
-peakwinstep<-as.numeric(arge[24])
+peakwinsize<-as.numeric(args[23])
+peakwinstep<-as.numeric(args[24])
 runid<-as.numeric(args[25])
 
 ##########################################
