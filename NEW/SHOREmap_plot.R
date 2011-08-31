@@ -79,9 +79,9 @@ for (chr in 1:(length(chrsize$V1))) {
         ci_background_count<-ciData[,4]
     	ci_forground_count<-ciData[,3]
         ci_error_count<-ciData[,5]
-      	ci_result<-ShoreMap.confint(ci_chromosome, ci_positions, ci_background_count, ci_forground_count, ci_error_count, foreground_frequency=target, level=2, recurse=F, forceInclude=T, allowAdjustment=misscored, filterOutliers=0, filterPValue=filterPValue,winSize=winsize,winStep=winstep,minMarker=minMarker,minCoverage=minCov,peakFinding=3,rMax=rMax,boostMax=boostMax)
+      	ci_result<-ShoreMap.confint(ci_chromosome, ci_positions, ci_background_count, ci_forground_count, ci_error_count, foreground_frequency=target, level=2, recurse=F, forceInclude=T, allowAdjustment=misscored, filterOutliers=0, filterPValue=filterPValue,winSize=winsize,winStep=winstep,minMarker=minMarker,minCoverage=minCov,peakFinding=3)
 	realBoostmax<-max(ci_result$averaged[,3], realBoostmax)
-	realRmax<-max(ci_result$averaged[,4], realRmax)
+	realRmax<-max(ci_result$averaged[,4], realRmax, peakWinSize=50000, peakWinStep=10000)
 }
 
 for (chr in 1:(length(chrsize$V1))) {
@@ -103,7 +103,7 @@ for (chr in 1:(length(chrsize$V1))) {
        		        ci_background_count<-ciData[,4]
        	        	ci_forground_count<-ciData[,3]
         	        ci_error_count<-ciData[,5]
-	        	ci_result<-ShoreMap.confint(ci_chromosome, ci_positions, ci_background_count, ci_forground_count, ci_error_count, foreground_frequency=target, level=conf_level, recurse=F, forceInclude=T, allowAdjustment=misscored, filterOutliers=filterOutliers, filterPValue=filterPValue,winSize=winsize,winStep=winstep,minMarker=minMarker,minCoverage=minCov,peakFinding=3,rMax=rMax,boostMax=boostMax)
+	        	ci_result<-ShoreMap.confint(ci_chromosome, ci_positions, ci_background_count, ci_forground_count, ci_error_count, foreground_frequency=target, level=conf_level, recurse=F, forceInclude=T, allowAdjustment=misscored, filterOutliers=filterOutliers, filterPValue=filterPValue, winSize=winsize,winStep=winstep, minMarker=minMarker, minCoverage=minCov,peakFinding=3, peakWinSize=50000, peakWinStep=10000)
 
                 	ci<-ci_result$confidenceInterval
        	               	ci_filtered <- ci_positions %in% ci_result$excluded 
