@@ -22,7 +22,9 @@ rMax<-as.numeric(args[19])
 plotR<-as.numeric(args[20])
 boostMax<-as.numeric(args[21])
 plotBoost<-as.numeric(args[22])
-runid<-as.numeric(args[23])
+peakwinsize<-as.numeric(arge[23])
+peakwinstep<-as.numeric(arge[24])
+runid<-as.numeric(args[25])
 
 ##########################################
 # Load libraries
@@ -81,8 +83,10 @@ for (chr in 1:(length(chrsize$V1))) {
         ci_error_count<-ciData[,5]
       	ci_result<-ShoreMap.confint(ci_chromosome, ci_positions, ci_background_count, ci_forground_count, ci_error_count, foreground_frequency=target, level=2, recurse=F, forceInclude=T, allowAdjustment=misscored, filterOutliers=0, filterPValue=filterPValue,winSize=winsize,winStep=winstep,minMarker=minMarker,minCoverage=minCov,peakFinding=3)
 	realBoostmax<-max(ci_result$averaged[,3], realBoostmax)
-	realRmax<-max(ci_result$averaged[,4], realRmax, peakWinSize=50000, peakWinStep=10000)
+	realRmax<-max(ci_result$averaged[,4], realRmax, peakWinSize=peakwinsize, peakWinStep=peakwinstep)
+
 }
+
 
 for (chr in 1:(length(chrsize$V1))) {
 
@@ -103,13 +107,15 @@ for (chr in 1:(length(chrsize$V1))) {
        		        ci_background_count<-ciData[,4]
        	        	ci_forground_count<-ciData[,3]
         	        ci_error_count<-ciData[,5]
-	        	ci_result<-ShoreMap.confint(ci_chromosome, ci_positions, ci_background_count, ci_forground_count, ci_error_count, foreground_frequency=target, level=conf_level, recurse=F, forceInclude=T, allowAdjustment=misscored, filterOutliers=filterOutliers, filterPValue=filterPValue, winSize=winsize,winStep=winstep, minMarker=minMarker, minCoverage=minCov,peakFinding=3, peakWinSize=50000, peakWinStep=10000)
+	        	ci_result<-ShoreMap.confint(ci_chromosome, ci_positions, ci_background_count, ci_forground_count, ci_error_count, foreground_frequency=target, level=conf_level, recurse=F, forceInclude=T, allowAdjustment=misscored, filterOutliers=filterOutliers, filterPValue=filterPValue, winSize=winsize,winStep=winstep, minMarker=minMarker, minCoverage=minCov,peakFinding=3, peakWinSize=peakwinsize, peakWinStep=peakwinstep)
 
                 	ci<-ci_result$confidenceInterval
        	               	ci_filtered <- ci_positions %in% ci_result$excluded 
        	               	#for plotting the windowed markers
 			ci_avgPosFreq <- ci_result$averaged
 
+			print(max(ci_avgPosFreq[,3]))
+			print(max(ci_avgPosFreq[,4]))
 
 			########################################################
 
@@ -129,17 +135,36 @@ for (chr in 1:(length(chrsize$V1))) {
 
 			plot(data$V2[data$V1[]==chrname], freq, ylim=c(y_min, y_max+0.2), xlim=c(x_min, x_max), type="n", axes=F, xlab="", ylab="Allele Frequency", main=paste("Chromosome:", chrname, " (In black, window size of ", winsize, " bp.)", sep=""))
 			
+			# plot grid
 			for (bgl in seq(0.1, 1, 0.1)) {
-       		               	lines(c(1, chrsize$V2[chr]), c(bgl, bgl), col="lightgrey")
+       		               	lines(c(1, chrsize$V2[chr]), c(bgl, bgl), col="lightgrey", lty=2)
                		}
 	
-			points(data$V2[data$V1[]==chrname], freq, ylim=c(y_min, y_max+0.2), col=ifelse(conf_level!=2 & ci_filtered,"red", "grey"), xlim=c(x_min, x_max), pch=20)
-		
+
+			####################################################		
+                        # boost
+                        if (plotBoost == 1) {
+				print("Plotting boost...")
+                                lines(ci_avgPosFreq[,1], ci_avgPosFreq[,3]/realBoostmax,col="#8B8970CC")
+                                #polygon(ci_avgPosFreq[,1], ci_avgPosFreq[,3]/realBoostmax, col="lemonchiffon4", border = NA)
+                        }
+
+                        #r
+                        if (plotR == 1) {
+				print("Plotting r...")
+                                lines(ci_avgPosFreq[,1], ci_avgPosFreq[,4]/realRmax, col="#8B8970CC")
+                                #polygon(ci_avgPosFreq[,1], ci_avgPosFreq[,4]/realRmax, col="#8B897033", border="#8B8970CC")
+                        }
+
+			####################################################
+			# Plot AFE
+			points(data$V2[data$V1[]==chrname], freq, ylim=c(y_min, y_max+0.2), col=ifelse(conf_level!=2 & ci_filtered, "purple2", "lightblue"), xlim=c(x_min, x_max), pch=ifelse(conf_level!=2 & ci_filtered, 4, 16), cex=0.75)
+
 			# Plot confidence interval
 			if (conf_level != 2 && ci[3, 1] <= 1) {
        				for (ci_i in 1:(length(ci[1,]))) {
 				
-					rect(ci[1, ci_i], y_max+0.02, ci[2, ci_i], y_max+0.06, col="orange", border="orange")
+					rect(ci[1, ci_i], y_max+0.02, ci[2, ci_i], y_max+0.06, col="maroon2", border="maroon2")
 					
 					# add positions
 					text(c(ci[1, ci_i]), c(y_max+0.09), labels=c(paste(ci[1, ci_i], sep="")), pos=2)
@@ -176,19 +201,14 @@ for (chr in 1:(length(chrsize$V1))) {
 
 
 			# Sliding window
-           		points(ci_avgPosFreq[,1], ci_avgPosFreq[,2], ylim=c(y_min, y_max+0.2), col="black", xlim=c(x_min, x_max), pch=20)
-
-			# boost
-			if (plotBoost == 1) {
-	           		lines(ci_avgPosFreq[,1], ci_avgPosFreq[,3]/realBoostmax,col="blue")
-print("Plotting boost...")
+           		#points(ci_avgPosFreq[,1], ci_avgPosFreq[,2], ylim=c(y_min, y_max+0.2), col="grey2", xlim=c(x_min, x_max), pch=16, cex=0.75)
+			dist=diff(ci_avgPosFreq[,1])
+			bl=x_max*0.005
+			indices= c(0,which(dist>bl),length(ci_avgPosFreq[,1]))
+			for(i in 2:length(indices)){
+				lines(ci_avgPosFreq[(indices[i-1]+1):(indices[i]),1], ci_avgPosFreq[(indices[i-1]+1):(indices[i]),2], ylim=c(y_min, y_max+0.2), col="grey2", xlim=c(x_min, x_max), cex=0.75, lwd=2)
 			}
-
-			#r
-			if (plotR == 1) {
-	           		lines(ci_avgPosFreq[,1], ci_avgPosFreq[,4]/realRmax,col="green")
-print("Plotting r...")
-			}
+			
 
 			#######################################################
 
@@ -200,11 +220,11 @@ print("Plotting r...")
 
 			max_read = max(max(data$V3[data$V1[]==chrname]), max(data$V4[data$V1[]==chrname]))
 	
-			plot(data$V2[data$V1[]==chrname], data$V3[data$V1[]==chrname], type="h", col="darkblue", xlim=c(x_min, x_max), ylim=c((-1)*max_read, max_read), axes=F, ylab="Read count", xlab="")
-			points(data$V2[data$V1[]==chrname], (-1)*data$V4[data$V1[]==chrname], type="h", col="darkred");
+			plot(data$V2[data$V1[]==chrname], data$V3[data$V1[]==chrname], type="h", col="steelblue4", xlim=c(x_min, x_max), ylim=c((-1)*max_read, max_read), axes=F, ylab="Read count", xlab="")
+			points(data$V2[data$V1[]==chrname], (-1)*data$V4[data$V1[]==chrname], type="h", col="olivedrab");
 	
 			axis(1, label=labels, at=labels)
-			axis(2, las=1, labels=c(paste((-1)*max_read), "0", paste(max_read,sep="")), at=c((-1)*max_read, 0, max_read))
+			axis(2, las=1, labels=c(paste(max_read), "0", paste(max_read,sep="")), at=c((-1)*max_read, 0, max_read))
 		}
 	}
 }

@@ -27,9 +27,11 @@ my $consensus_format;
 my $window_size;
 my $window_step;
 
+my $peak_window_size;
+my $peak_window_step;
+
 my $filter_min_marker;
 my $filter_min_coverage;
-#my $filter_errors;
 
 my $outlier_window_size;
 my $outlier_pvalue;
@@ -181,7 +183,7 @@ foreach my $chr (sort {$a cmp $b} keys %CHR2POS2ALLELE1_COUNT) {
 
 
 my $pdffile = "$out_folder/SHOREmap.pdf";
-my $cmd = "R --slave --vanilla --args $expect $chrsizes $pdffile $out_folder/SHOREmap.zoom_region.txt $window_size $window_step $FindBin::Bin $out_folder $outlier_window_size $outlier_pvalue $confidence $misphenotyped $filter_min_marker $filter_min_coverage $r_max $plot_r $boost_max $plot_boost $runid < ".$FindBin::Bin."/SHOREmap_plot.R"; # 2> /dev/null";
+my $cmd = "R --slave --vanilla --args $expect $chrsizes $pdffile $out_folder/SHOREmap.zoom_region.txt $window_size $window_step $FindBin::Bin $out_folder $outlier_window_size $outlier_pvalue $confidence $misphenotyped $filter_min_marker $filter_min_coverage $r_max $plot_r $boost_max $plot_boost $peak_window_size $peak_window_step $runid < ".$FindBin::Bin."/SHOREmap_plot.R"; # 2> /dev/null";
 print STDERR $cmd, "\n" if $verbose == 1;
 $cmd .= " 2> /dev/null" if $verbose == 0;
 system($cmd);
@@ -461,10 +463,6 @@ sub init {
 SHOREmap 2.0
 
 Mandatory:
---target                DOUBLE   Target allele frequency 
-                                 (default: 1.0)
---conf                  DOUBLE   Confidence level
-                                 (default: 0.99)
 --chrsizes              STRING   Chromosome sizes file
 --folder                STRING   Output folder
 --marker                STRING   Marker file
@@ -474,13 +472,21 @@ Mandatory:
 --consen-format         STRING   Consensus file format, \"shore\" 
                                  or \"tab\" (default: \"shore\")
 
-Sliding window:
+Confidence interval:
+--target                DOUBLE   Target allele frequency 
+                                 (default: 1.0)
+--conf                  DOUBLE   Confidence level
+                                 (default: 0.99)
+
+--peak-window-size      INT      (default: 50000)
+--peak-window-step      INT      (default: 10000)
+                                 Used for initial seed finding
+
+Visulization:
 --window-size           INT      (default: 50000)
 --window-step           INT      (default: 10000)
-
-                                 Used for smoothed visulization,
-                                 initial peak finding 
-                                 and boost calculation
+                                 Used for smoothed visulization
+                                 and \"boost\"-value calculation
 
 Filter:
 --min-marker            INT      Filter windows with low numbers 
@@ -531,8 +537,11 @@ See documentation for file formats.
 	$marker_format = "shore";
 	$consensus = "";
 	$consensus_format = "shore";
-	$window_size = "50000";
+	$window_size = 50000;
 	$window_step = 10000;
+
+	$peak_window_size = 50000;
+	$peak_window_step = 10000;
 
 	$filter_min_marker = 0;
 	$filter_min_coverage = 0;
@@ -552,9 +561,9 @@ See documentation for file formats.
 	$background2 = 0;
 	$verbose = 0;	
 
-	$boost_max = 1000;
+	$boost_max = 10000;
 	$plot_boost = 0;
-	$r_max = 1000;
+	$r_max = 10000;
 	$plot_r = 0;
 
 	$runid = 1;
@@ -724,6 +733,9 @@ See documentation for file formats.
 
 	if (defined($CMD{"plot-boost"})) {
                 $plot_boost = 1;
+		if (defined($CMD{"plot-r"})) {
+			die("Select either \"r\" or \"boost\".\n");
+		}
         }
 
 	if (defined($CMD{"r-max"})) {
@@ -732,6 +744,9 @@ See documentation for file formats.
 
 	if (defined($CMD{"plot-r"})) {
                 $plot_r = 1;
+		if (defined($CMD{"plot-boost"})) {
+                        die("Select either \"r\" or \"boost\".\n");
+                }
         }
 
 	####################################################################################
