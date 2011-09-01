@@ -135,7 +135,7 @@ ShoreMap.confint <- function(chromosome,positions, background_count, foreground_
 }
 
 #version4
-filterSamplingLarge<-function(internalData,fs_windowsize=200000,fs_limit=0.05,fs_exact=FALSE){
+filterSampling<-function(internalData,fs_windowsize=200000,fs_limit=0.05,fs_exact=FALSE){
  size<-length(internalData[,2])
  indices<-1:size
  largeWindow<-fs_windowsize*8
@@ -143,11 +143,11 @@ filterSamplingLarge<-function(internalData,fs_windowsize=200000,fs_limit=0.05,fs
  windows1<-floor((internalData[,2]+shift)/largeWindow)
  shift<-fs_windowsize*4
  windows2<-floor((internalData[,2]+shift)/largeWindow)
-
+ #calculate overlapping windows and remove only those that are removed in both runs
  c(tapply(indices,windows1,function(x) filterSampling_sub(internalData[x,],fs_windowsize,fs_limit,fs_exact,size)),recursive=TRUE) & c(tapply(indices,windows2,function(x) filterSampling_sub(internalData[x,],fs_windowsize,fs_limit,fs_exact,size)),recursive=TRUE)
 }
 
-filterSampling <-function(internalData,fs_windowsize=200000,fs_limit=0.05,fs_exact=FALSE,fs_totSize){
+filterSampling_sub <-function(internalData,fs_windowsize=200000,fs_limit=0.05,fs_exact=FALSE,fs_totSize){
  fs_freqs<-internalData[,3]/rowSums(internalData[,3:5])
  #fs_allPos<-internalData[,2]
  fs_n<-length(fs_freqs)
