@@ -72,6 +72,7 @@ ShoreMap.confint <- function(chromosome,positions, background_count, foreground_
 
 
 
+
   ci<-matrix(c(0,0,920,1,0),nrow=5)
   if(level[1]<=1){
    
