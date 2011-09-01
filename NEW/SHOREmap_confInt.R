@@ -134,8 +134,122 @@ ShoreMap.confint <- function(chromosome,positions, background_count, foreground_
  }
 }
 
-#version3
-filterSampling <-function(internalData,fs_windowsize=200000,fs_limit=0.05,fs_exact=FALSE){
+#version4
+filterSamplingLarge<-function(internalData,fs_windowsize=200000,fs_limit=0.05,fs_exact=FALSE){
+ size<-length(internalData[,2])
+ indices<-1:size
+ largeWindow<-fs_windowsize*8
+ shift<-0
+ windows1<-floor((internalData[,2]+shift)/largeWindow)
+ shift<-fs_windowsize*4
+ windows2<-floor((internalData[,2]+shift)/largeWindow)
+
+ c(tapply(indices,windows1,function(x) filterSampling_sub(internalData[x,],fs_windowsize,fs_limit,fs_exact,size)),recursive=TRUE) & c(tapply(indices,windows2,function(x) filterSampling_sub(internalData[x,],fs_windowsize,fs_limit,fs_exact,size)),recursive=TRUE)
+}
+
+filterSampling <-function(internalData,fs_windowsize=200000,fs_limit=0.05,fs_exact=FALSE,fs_totSize){
+ fs_freqs<-internalData[,3]/rowSums(internalData[,3:5])
+ #fs_allPos<-internalData[,2]
+ fs_n<-length(fs_freqs)
+ fs_tested<- rep(FALSE,fs_n)
+ #fs_filter<- rep(FALSE,fs_n)
+ fs_allIndices<-1:fs_n
+
+ fs_chrStart<-min(internalData[,2])
+ fs_chrEnd<-max(internalData[,2])
+ fs_diff<-abs(diff(fs_freqs))
+ fs_diff<-c(fs_diff[1],fs_diff)+c(fs_diff,fs_diff[fs_n-1])
+  
+
+ fs_data<-data.frame(fs_diff,fs_freqs,fs_tested,internalData[,2:5],rep(FALSE,fs_n))
+ fs_notFiltered<-1:fs_n
+ fs_filtered<-c()
+ min_diff<-Inf
+# system.time({
+ while(sum(!fs_data[,3])>0){
+
+#  system.time({
+  fs_curIndex<-which.max(fs_data[,1]) #0.001
+#  fs_curPos<-fs_data[fs_curIndex,4]
+  fs_curPosData<-c(fs_data[fs_curIndex,],recursive=TRUE) #0.002
+
+#   plot(internalData[!fs_filter,2],fs_diff)
+#   abline(v=fs_curPos,col="red")
+
+  #calculate window to use
+  fs_start<-max(fs_chrStart,fs_curPosData[4]-fs_windowsize/2) #0
+  fs_end<- fs_start + fs_windowsize #0
+  if(fs_end>fs_chrEnd){ #0
+   fs_start<-max(fs_chrStart,fs_end-fs_windowsize)
+  }
+  fs_toUse<-fs_data[,4]>=fs_start & fs_data[,4]<=fs_end & !fs_data[,8] & fs_data[,4]!=fs_curPos #0.021
+
+  fs_p<-1 #0
+  if(sum(fs_toUse)>3){ #0.001
+#   fs_red<-fs_data[fs_toUse,] #0.047
+#   fs_red<-fs_red[fs_red[,4]!=fs_curPos & !fs_red[,8],] #0.001
+
+   fs_p.win<-colSums(fs_data[fs_toUse,5:7]) #0.022
+   fs_p.win<-fs_p.win/sum(fs_p.win) #0
+#   fs_p.win<-colSums(fs_data[,3:5])/sum(fs_data[,3:5])
+   if(fs_exact){
+    sink("/dev/null");
+    fs_p<-multinomial.test(c(internalData[fs_curIndex,3:5],recursive=TRUE),prob=fs_p.win)$p.value
+    sink();
+   }else{
+    fs_p1<-fs_p.win[3] #0
+    fs_p2<-fs_p.win[1]/sum(fs_p.win[1:2]) #0
+    x<-fs_curPosData[5:7] #0
+    fs_p<-pbinom(x[3]+ifelse(x[3]<sum(x)*fs_p1,1,-1),size=sum(x),prob=fs_p1,lower.tail=x[3]<sum(x)*fs_p1)*pbinom(x[1]+ifelse(x[1]<sum(x[1:2])*fs_p2,1,-1),size=sum(x[1:2]),prob=fs_p2,lower.tail=x[1]<sum(x[1:2])*fs_p2) #0.001
+   }
+  }
+#  })
+
+  if(p.adjust(fs_p,method="holm",n=fs_totSize)<=fs_limit){ #0.011
+#   if(fs_data[fs_curIndex,1]<min_diff){
+#    min_diff<-fs_data[fs_curIndex,1]
+#    print(fs_data[fs_curIndex,])
+#   }
+   #mark outlier
+   fs_data[fs_curIndex,c(1,3,8)]<-c(-1,TRUE,TRUE) #0.010
+  
+   #recalculate diff values for neighboring markers
+   fs_before<-fs_curIndex-1 #0
+   while(sum(fs_before==fs_filtered)>0){ #~0 with no markers in fs_filtered
+    fs_before<-fs_before-1
+   }
+   fs_after<-fs_curIndex+1 #0
+   while(sum(fs_after==fs_filtered)>0){ #0 with no markers in fs_filtered
+    fs_after<-fs_after+1
+   }
+   if(fs_before<1){
+    #first marker
+    fs_data[fs_after,1]<-2*(fs_data[fs_after,1]-abs(fs_data[fs_after,2]-fs_curPosData[2]))
+   }else if(fs_after>fs_n){
+    #last marker
+    fs_data[fs_before,1]<-2*(fs_data[fs_before,1]-abs(fs_data[fs_before,2]-fs_curPosData[2]))
+   }else{
+    fs_flank<-abs(fs_data[fs_before,2]-fs_data[fs_after,2]) #0.001
+
+    fs_data[fs_before,1]<-fs_data[fs_before,1]-abs(fs_data[fs_before,2]-fs_curPosData[2])+fs_flank #0.011
+
+    fs_data[fs_after,1]<-fs_data[fs_after,1]-abs(fs_data[fs_after,2]-fs_curPosData[2])+fs_flank #0.012
+   }
+
+
+
+   #add the position to the filtered positions
+   fs_filtered<-c(fs_filtered,fs_curIndex) #0
+  }else{
+   fs_data[fs_curIndex,c(1,3)]<-c(-1,TRUE) #0.011
+  }
+#  sum(!fs_data[,3])>0
+ }
+# })
+ !fs_data[,8]
+}
+
+filterSamplingv3 <-function(internalData,fs_windowsize=200000,fs_limit=0.05,fs_exact=FALSE){
  fs_freqs<-internalData[,3]/rowSums(internalData[,3:5])
  fs_allPos<-internalData[,2]
  fs_n<-length(fs_freqs)
@@ -146,10 +260,11 @@ filterSampling <-function(internalData,fs_windowsize=200000,fs_limit=0.05,fs_exa
  fs_chrEnd<-max(fs_allPos)
 
  while(sum(!fs_tested)>0){
-  fs_diff<-abs(diff(fs_freqs[!fs_filter]))
-  fs_diff<-c(0,fs_diff)+c(fs_diff,0)
+#  system.time({
+  fs_diff<-abs(diff(fs_freqs[!fs_filter])) #0.038
+  fs_diff<-c(0,fs_diff)+c(fs_diff,0) #0.043
   
-  fs_curIndex<-fs_allIndices[!fs_filter][!fs_tested[!fs_filter]][which.max(fs_diff[!fs_tested[!fs_filter]])]
+  fs_curIndex<-fs_allIndices[!fs_filter][!fs_tested[!fs_filter]][which.max(fs_diff[!fs_tested[!fs_filter]])] #0.037
   fs_curPos<-internalData[fs_curIndex,2]
 
 #   plot(internalData[!fs_filter,2],fs_diff)
@@ -161,12 +276,12 @@ filterSampling <-function(internalData,fs_windowsize=200000,fs_limit=0.05,fs_exa
   if(fs_end>fs_chrEnd){
    fs_start<-max(fs_chrStart,fs_end-fs_windowsize)
   }
-  fs_toUse<-fs_allPos>=fs_start & fs_allPos<=fs_end & fs_allPos != fs_curPos & !fs_filter  
+  fs_toUse<-fs_allPos>=fs_start & fs_allPos<=fs_end & fs_allPos != fs_curPos & !fs_filter  #0.021
   fs_size<- sum(fs_toUse)
   fs_p<-1
   if(fs_size>3){
-   assign("dataset_shoremapmle",internalData[fs_toUse,],".GlobalEnv")
-   fs_p.win<- samplefreqs(1,fs_size)
+   assign("dataset_shoremapmle",internalData[fs_toUse,],".GlobalEnv") #0.031
+   fs_p.win<- samplefreqs(1,fs_size) #0.003
 #   fs_p.win<-colSums(fs_data[,3:5])/sum(fs_data[,3:5])
    if(fs_exact){
     sink("/dev/null");
@@ -179,11 +294,13 @@ filterSampling <-function(internalData,fs_windowsize=200000,fs_limit=0.05,fs_exa
     fs_p<-pbinom(x[3]+ifelse(x[3]<sum(x)*fs_p1,1,-1),size=sum(x),prob=fs_p1,lower.tail=x[3]<sum(x)*fs_p1)*pbinom(x[1]+ifelse(x[1]<sum(x[1:2])*fs_p2,1,-1),size=sum(x[1:2]),prob=fs_p2,lower.tail=x[1]<sum(x[1:2])*fs_p2)
    }
   }
-  fs_filter[fs_curIndex]<- p.adjust(fs_p,method="holm",n=fs_n)<=fs_limit
-  fs_tested[fs_curIndex]<-TRUE
+  fs_filter[fs_curIndex]<- p.adjust(fs_p,method="holm",n=fs_n)<=fs_limit #0.011
+  fs_tested[fs_curIndex]<-TRUE #0
+#  })
  }
  !fs_filter
 }
+
 
 identify_peaks <- function(indexL,indexH,frequency,level,minWindow,avg_posFreq,bestsize,recurse,forceInclude=TRUE,allowAdjustment=0.05){
  assign("storage_shoremapmle",matrix(c(-1,-1,-1),nrow=1),".GlobalEnv")
