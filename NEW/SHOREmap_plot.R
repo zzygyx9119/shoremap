@@ -73,6 +73,8 @@ data<-read.table(paste(outputpath, "/SHOREmap.winsize1.txt", sep=""), as.is=c(1)
 realRmax<-0
 realBoostmax<-0
 
+chrres = list()
+
 for (chr in 1:(length(chrsize$V1))) {
 	chrname=chrsize$V1[chr]
         ciData<- data[data[,1]==chrname,]
@@ -81,10 +83,13 @@ for (chr in 1:(length(chrsize$V1))) {
         ci_background_count<-ciData[,4]
     	ci_forground_count<-ciData[,3]
         ci_error_count<-ciData[,5]
-      	ci_result<-ShoreMap.confint(ci_chromosome, ci_positions, ci_background_count, ci_forground_count, ci_error_count, foreground_frequency=target, level=2, recurse=F, forceInclude=T, allowAdjustment=misscored, filterOutliers=0, filterPValue=filterPValue,winSize=winsize,winStep=winstep,minMarker=minMarker,minCoverage=minCov,peakFinding=3)
+      	#ci_result<-ShoreMap.confint(ci_chromosome, ci_positions, ci_background_count, ci_forground_count, ci_error_count, foreground_frequency=target, level=2, recurse=F, forceInclude=T, allowAdjustment=misscored, filterOutliers=0, filterPValue=filterPValue,winSize=winsize,winStep=winstep,minMarker=minMarker,minCoverage=minCov,peakFinding=3)
+	ci_result<-ShoreMap.confint(ci_chromosome, ci_positions, ci_background_count, ci_forground_count, ci_error_count, foreground_frequency=target, level=conf_level, recurse=F, forceInclude=T, allowAdjustment=misscored, filterOutliers=filterOutliers, filterPValue=filterPValue, winSize=winsize,winStep=winstep, minMarker=minMarker, minCoverage=minCov,peakFinding=3, peakWinSize=peakwinsize, peakWinStep=peakwinstep)
 	realBoostmax<-max(ci_result$averaged[,3], realBoostmax)
-	realRmax<-max(ci_result$averaged[,4], realRmax, peakWinSize=peakwinsize, peakWinStep=peakwinstep)
+	#realRmax<-max(ci_result$averaged[,4], realRmax, peakWinSize=peakwinsize, peakWinStep=peakwinstep)
+	realRmax<-max(ci_result$averaged[,4], realRmax)
 
+	chrres[[chr]] = ci_result
 }
 
 
@@ -100,22 +105,25 @@ for (chr in 1:(length(chrsize$V1))) {
 			# Set up plot data
 			freq = data$V3[data$V1[]==chrname] / ( data$V3[data$V1[]==chrname] + data$V4[data$V1[]==chrname] )
 
-			# Calc confidence interval
+			## Calc confidence interval
+       		        #ciData<- data[data[,1]==chrname,]
+	       		#ci_chromosome<-ciData[,1]
+       	        	#ci_positions<-ciData[,2]
+       		        #ci_background_count<-ciData[,4]
+       	        	#ci_forground_count<-ciData[,3]
+        	        #ci_error_count<-ciData[,5]
+	        	#ci_result<-ShoreMap.confint(ci_chromosome, ci_positions, ci_background_count, ci_forground_count, ci_error_count, foreground_frequency=target, level=conf_level, recurse=F, forceInclude=T, allowAdjustment=misscored, filterOutliers=filterOutliers, filterPValue=filterPValue, winSize=winsize,winStep=winstep, minMarker=minMarker, minCoverage=minCov,peakFinding=3, peakWinSize=peakwinsize, peakWinStep=peakwinstep)
+
+			ci_result = chrres[[chr]]
+
        		        ciData<- data[data[,1]==chrname,]
-	       		ci_chromosome<-ciData[,1]
        	        	ci_positions<-ciData[,2]
-       		        ci_background_count<-ciData[,4]
-       	        	ci_forground_count<-ciData[,3]
-        	        ci_error_count<-ciData[,5]
-	        	ci_result<-ShoreMap.confint(ci_chromosome, ci_positions, ci_background_count, ci_forground_count, ci_error_count, foreground_frequency=target, level=conf_level, recurse=F, forceInclude=T, allowAdjustment=misscored, filterOutliers=filterOutliers, filterPValue=filterPValue, winSize=winsize,winStep=winstep, minMarker=minMarker, minCoverage=minCov,peakFinding=3, peakWinSize=peakwinsize, peakWinStep=peakwinstep)
 
                 	ci<-ci_result$confidenceInterval
        	               	ci_filtered <- ci_positions %in% ci_result$excluded 
+
        	               	#for plotting the windowed markers
 			ci_avgPosFreq <- ci_result$averaged
-
-			print(max(ci_avgPosFreq[,3]))
-			print(max(ci_avgPosFreq[,4]))
 
 			########################################################
 
@@ -208,7 +216,7 @@ for (chr in 1:(length(chrsize$V1))) {
 			for(i in 2:length(indices)){
 				lines(ci_avgPosFreq[(indices[i-1]+1):(indices[i]),1], ci_avgPosFreq[(indices[i-1]+1):(indices[i]),2], ylim=c(y_min, y_max+0.2), col="grey2", xlim=c(x_min, x_max), cex=0.75, lwd=2)
 			}
-			
+
 
 			#######################################################
 

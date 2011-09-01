@@ -423,10 +423,10 @@ sub write_log {
 		print FILE "-verbose ";
 	}
 	if ($plot_boost != 0) {
-		print FILE "-plot_boost ";
+		print FILE "-plot-boost ";
 	}
 	if ($plot_r != 0) {
-                print FILE "-plot_r ";
+                print FILE "-plot-r ";
         }
 
 	print FILE "\n";
@@ -671,7 +671,6 @@ See documentation for file formats.
 
         if (defined($CMD{"peak-window-step"})) {
                 $peak_window_step = $CMD{"peak-window-step"};
-print "HERE: $peak_window_step \n";
                 if ($peak_window_step =~ m/[^0-9.]/ ) { die("Window step size is not numeric ($peak_window_step).\n");}
                 if ($peak_window_step < 1) { die("Window step size smaller than 1 not valid ($peak_window_step).\n");}
         }
