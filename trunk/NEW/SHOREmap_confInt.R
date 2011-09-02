@@ -182,7 +182,7 @@ filterSampling_sub <-function(internalData,fs_windowsize=200000,fs_limit=0.05,fs
   if(fs_end>fs_chrEnd){ #0
    fs_start<-max(fs_chrStart,fs_end-fs_windowsize)
   }
-  fs_toUse<-fs_data[,4]>=fs_start & fs_data[,4]<=fs_end & !fs_data[,8] & fs_data[,4]!=fs_curPos #0.021
+  fs_toUse<-fs_data[,4]>=fs_start & fs_data[,4]<=fs_end & !fs_data[,8] & fs_data[,4]!=fs_curPosData[4] #0.021
 
   fs_p<-1 #0
   if(sum(fs_toUse)>3){ #0.001
