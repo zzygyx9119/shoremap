@@ -8,17 +8,17 @@
 require(bbmle)
 require(EMT)
 
-ShoreMap.confint <- function(chromosome,positions, background_count, foreground_count, error_count, foreground_frequency=1, level=0.99, recurse=FALSE, forceInclude=TRUE, allowAdjustment=0.0, filterOutliers=200000, filterPValue=0.05, winSize=50000, winStep=10000, minMarker=10, minCoverage=0, peakFinding=3, peakWinSize=50000, peakWinStep=10000) {
+ShoreMap.confint <- function(chromosome,positions, background_count, foreground_count, error_count, foreground_frequency=1, level=0.99, recurse=FALSE, forceInclude=TRUE, allowAdjustment=0.0, filterOutliers=200000, filterPValue=0.05, winSize=50000, winStep=10000, minMarker=10, minCoverage=0,maxCoverage=Inf, peakFinding=3, peakWinSize=50000, peakWinStep=10000) {
 # allowAdjustment=0.0
 # minMarker=10
 # level<-c(0.95,0.99,0.999)
 # print(sapply(ls(all.names=TRUE),function(x) eval(parse(text=paste("length(",x,")",sep="")))))
 # peakFinding<-3 #3 is boost, 4 is R
- 
+# recurse=TRUE
  minMarker<-max(1,minMarker)
  foreground_frequency<-as.numeric(foreground_frequency)
  internalData<- cbind(chromosome,positions,foreground_count,background_count,error_count)
- internalData<- internalData[rowSums(internalData[,3:5])>minCoverage,]
+ internalData<- internalData[rowSums(internalData[,3:5])>minCoverage&rowSums(internalData[,3:5])<maxCoverage,]
  print(paste("Analysing chr ",chromosome[1],", with ",length(chromosome)," (",length(internalData[,1]),") markers for equality to ",foreground_frequency,"(",typeof(foreground_frequency),")",sep=""))
  assign("storage_shoremapmle",matrix(c(-1,-1,-1),nrow=1),".GlobalEnv")
 # assign("savedCalc_shoremapmle",0,".GlobalEnv") 
@@ -61,7 +61,7 @@ ShoreMap.confint <- function(chromosome,positions, background_count, foreground_
    ret[is.infinite(ret)]<-rMax
    ret
   }),recursive=TRUE)
-  avg_boost<-abs(1/(1-foreground_frequency/pmax(avg_freq,1-avg_freq)))
+  avg_boost<-abs(1/(1-max(foreground_frequency,1-foreground_frequency)/pmax(avg_freq,1-avg_freq)))
   boostMax<-max(avg_boost[!is.infinite(avg_boost)])
   avg_boost[is.infinite(avg_boost)]<-boostMax
 #  avg_boost<-avg_boost/max(avg_boost)
@@ -97,7 +97,7 @@ ShoreMap.confint <- function(chromosome,positions, background_count, foreground_
     ret[is.infinite(ret)]<-rMax
     ret
    }),recursive=TRUE)
-   peak_boost<-abs(1/(1-foreground_frequency/pmax(peak_freq,1-peak_freq)))
+   peak_boost<-abs(1/(1-max(foreground_frequency,1-foreground_frequency)/pmax(peak_freq,1-peak_freq)))
    boostMax<-max(peak_boost[!is.infinite(peak_boost)])
    peak_boost[is.infinite(peak_boost)]<-boostMax
 
