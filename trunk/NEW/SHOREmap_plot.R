@@ -18,13 +18,14 @@ conf_level<-as.numeric(args[15])
 misscored<-as.numeric(args[16])
 minMarker<-as.numeric(args[17])
 minCov<-as.numeric(args[18])
-rMax<-as.numeric(args[19])
-plotR<-as.numeric(args[20])
-boostMax<-as.numeric(args[21])
-plotBoost<-as.numeric(args[22])
-peakwinsize<-as.numeric(args[23])
-peakwinstep<-as.numeric(args[24])
-runid<-as.numeric(args[25])
+maxCov<-as.numeric(args[19])
+rMax<-as.numeric(args[20])
+plotR<-as.numeric(args[21])
+boostMax<-as.numeric(args[22])
+plotBoost<-as.numeric(args[23])
+peakwinsize<-as.numeric(args[24])
+peakwinstep<-as.numeric(args[25])
+runid<-as.numeric(args[26])
 
 ##########################################
 # Load libraries
@@ -168,6 +169,7 @@ for (chr in 1:(length(chrsize$V1))) {
 			# Plot AFE
 			points(data$V2[data$V1[]==chrname], freq, ylim=c(y_min, y_max+0.2), col=ifelse(conf_level!=2 & ci_filtered, "purple2", "lightblue"), xlim=c(x_min, x_max), pch=ifelse(conf_level!=2 & ci_filtered, 4, 16), cex=0.75)
 
+
 			# Plot confidence interval
 			if (conf_level != 2 && ci[3, 1] <= 1) {
        				for (ci_i in 1:(length(ci[1,]))) {
@@ -228,8 +230,8 @@ for (chr in 1:(length(chrsize$V1))) {
 
 			max_read = max(max(data$V3[data$V1[]==chrname]), max(data$V4[data$V1[]==chrname]))
 	
-			plot(data$V2[data$V1[]==chrname], data$V3[data$V1[]==chrname], type="h", col="steelblue4", xlim=c(x_min, x_max), ylim=c((-1)*max_read, max_read), axes=F, ylab="Read count", xlab="")
-			points(data$V2[data$V1[]==chrname], (-1)*data$V4[data$V1[]==chrname], type="h", col="olivedrab");
+			plot(data$V2[data$V1[]==chrname & data$V3[]>=minCov & data$V3[]<=maxCov], data$V3[data$V1[]==chrname & data$V3[]>=minCov & data$V3[]<=maxCov], type="h", col="steelblue4", xlim=c(x_min, x_max), ylim=c((-1)*max_read, max_read), axes=F, ylab="Read count", xlab="")
+			points(data$V2[data$V1[]==chrname & data$V4[]>=minCov & data$V4[]<=maxCov], (-1)*data$V4[data$V1[]==chrname & data$V4[]>=minCov & data$V4[]<=maxCov], type="h", col="olivedrab");
 	
 			axis(1, label=labels, at=labels)
 			axis(2, las=1, labels=c(paste(max_read), "0", paste(max_read,sep="")), at=c((-1)*max_read, 0, max_read))

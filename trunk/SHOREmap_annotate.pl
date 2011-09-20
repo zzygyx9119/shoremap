@@ -202,7 +202,7 @@ if( ($gff ne "") && ($refseq_file ne "") ) {
 		chomp;
 		if(substr($_, 0, 1)  eq ">") {
 			my $current_chr = substr($_, 1);
-			$current_chr =~ s/\s+//g;
+			$current_chr =~ s/\s.*//g;
 
 			if($current_chr eq $chromosome) {
 				while(<GENOME>) {

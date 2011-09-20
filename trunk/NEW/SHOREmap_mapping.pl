@@ -32,6 +32,7 @@ my $peak_window_step;
 
 my $filter_min_marker;
 my $filter_min_coverage;
+my $filter_max_coverage;
 
 my $outlier_window_size;
 my $outlier_pvalue;
@@ -183,7 +184,7 @@ foreach my $chr (sort {$a cmp $b} keys %CHR2POS2ALLELE1_COUNT) {
 
 
 my $pdffile = "$out_folder/SHOREmap.pdf";
-my $cmd = "R --slave --vanilla --args $expect $chrsizes $pdffile $out_folder/SHOREmap.zoom_region.txt $window_size $window_step $FindBin::Bin $out_folder $outlier_window_size $outlier_pvalue $confidence $misphenotyped $filter_min_marker $filter_min_coverage $r_max $plot_r $boost_max $plot_boost $peak_window_size $peak_window_step $runid < ".$FindBin::Bin."/SHOREmap_plot.R"; # 2> /dev/null";
+my $cmd = "R --slave --vanilla --args $expect $chrsizes $pdffile $out_folder/SHOREmap.zoom_region.txt $window_size $window_step $FindBin::Bin $out_folder $outlier_window_size $outlier_pvalue $confidence $misphenotyped $filter_min_marker $filter_min_coverage $filter_max_coverage $r_max $plot_r $boost_max $plot_boost $peak_window_size $peak_window_step $runid < ".$FindBin::Bin."/SHOREmap_plot.R"; # 2> /dev/null";
 print STDERR $cmd, "\n" if $verbose == 1;
 $cmd .= " 2> /dev/null" if $verbose == 0;
 system($cmd);
@@ -399,9 +400,10 @@ sub read_chromosomes {
 
 sub write_log {
 
-	open FILE, ">$out_folder/SHOREmap.log";
+print $out_folder, "\n";
+	open FILE, ">$out_folder/SHOREmap.log" or die "cannot open log file\n";
 
-	print FILE "# perl $0 --target $expect --chrsizes $chrsizes --folder $out_folder --marker $marker --marker-format $marker_format --consen $consensus --consen-format $consensus_format --window-size $window_size --window-step $window_step --mis-phenotyped $misphenotyped --min-marker $filter_min_marker --min-coverage $filter_min_coverage --outlier-window-size $outlier_window_size --outlier-pvalue $outlier_pvalue --peak-window-size $peak_window_size --peak-window-step $peak_window_step ";
+	print FILE "# perl $0 --target $expect --chrsizes $chrsizes --folder $out_folder --marker $marker --marker-format $marker_format --consen $consensus --consen-format $consensus_format --window-size $window_size --window-step $window_step --mis-phenotyped $misphenotyped --min-marker $filter_min_marker --min-coverage $filter_min_coverage --max-coverage $filter_max_coverage --outlier-window-size $outlier_window_size --outlier-pvalue $outlier_pvalue --peak-window-size $peak_window_size --peak-window-step $peak_window_step ";
 
 	if ($confidence == 2) {
 		print FILE "-no-interval ";
@@ -493,6 +495,8 @@ Filter:
                                  of markers (default: 10)
 --min-coverage          INT      Filter single marker with low 
                                  average coverage (default: 0)
+--max-coverage          INT      Filter single marker with high
+                                 average coverage (default: Inf)
 --outlier-window-size   INT      Window size to assess local
                                  allele frequency used for 
                                  outlier removal 
@@ -545,6 +549,7 @@ See documentation for file formats.
 
 	$filter_min_marker = 0;
 	$filter_min_coverage = 0;
+	$filter_max_coverage = 99999999999999;
 
 	$outlier_window_size = 200000;
 	$outlier_pvalue = 0.05;
@@ -573,7 +578,7 @@ See documentation for file formats.
 		exit(0);
 	}
 
-        GetOptions(\%CMD, "target=f", "conf=f", "chrsizes=s", "folder=s", "marker=s", "marker-format=s", "consen=s", "consen-format=s", "window-size=i", "window-step=i", "min-marker=i", "min-coverage=i", "outlier-window-size=i", "outlier-pvalue=f", "mis-phenotyped=f", "chromosome=i", "begin=i", "end=i", "minfreq=f", "maxfreq=f", "verbose", "background2", "referrors=s", "no-interval", "runid=i", "boost-max=i", "plot-boost", "r-max=i", "plot-r", "peak-window-size=i", "peak-window-step=i"); 
+        GetOptions(\%CMD, "target=f", "conf=f", "chrsizes=s", "folder=s", "marker=s", "marker-format=s", "consen=s", "consen-format=s", "window-size=i", "window-step=i", "min-marker=i", "min-coverage=i", "max-coverage=i", "outlier-window-size=i", "outlier-pvalue=f", "mis-phenotyped=f", "chromosome=i", "begin=i", "end=i", "minfreq=f", "maxfreq=f", "verbose", "background2", "referrors=s", "no-interval", "runid=i", "boost-max=i", "plot-boost", "r-max=i", "plot-r", "peak-window-size=i", "peak-window-step=i"); 
 
 
         die("Please specify chromosome sizes file\n") unless defined($CMD{chrsizes});
@@ -683,6 +688,11 @@ See documentation for file formats.
 	if (defined($CMD{"min-coverage"})) {
                 $filter_min_coverage = $CMD{"min-coverage"};
                 if ($filter_min_coverage =~ m/[^0-9.]/ ) { die("Minimal coverage is not numeric ($filter_min_coverage).\n");}
+        }
+
+	if (defined($CMD{"max-coverage"})) {
+                $filter_max_coverage = $CMD{"max-coverage"};
+                if ($filter_max_coverage =~ m/[^0-9.]/ ) { die("Minimal coverage is not numeric ($filter_max_coverage).\n");}
         }
 
 	if (defined($CMD{"outlier-window-size"})) {
