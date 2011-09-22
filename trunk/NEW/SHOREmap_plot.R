@@ -190,7 +190,7 @@ for (chr in 1:(length(chrsize$V1))) {
 			# Stig:
 			#abline(v=16702262, col="limegreen")
 			# Vini:
-			abline(v=18816001, col="limegreen")
+			#abline(v=18816001, col="limegreen")
 			# Qtl:
 			if(file.exists(paste("Sim.",runid,".qtl.txt", sep=""))) {
 				qtl<-read.table(paste("Sim.",runid,".qtl.txt", sep=""), header=F)
@@ -228,7 +228,7 @@ for (chr in 1:(length(chrsize$V1))) {
 		        #data<-read.table(paste(outputpath, "/SHOREmap.winsize", winsize, ".txt", sep=""), as.is=c(1))
 
 
-			max_read = max(max(data$V3[data$V1[]==chrname]), max(data$V4[data$V1[]==chrname]))
+			max_read = max(max(data$V3[data$V1[]==chrname & data$V3[]>=minCov & data$V3[]<=maxCov]), max(data$V4[data$V1[]==chrname & data$V3[]>=minCov & data$V3[]<=maxCov]))
 	
 			plot(data$V2[data$V1[]==chrname & data$V3[]>=minCov & data$V3[]<=maxCov], data$V3[data$V1[]==chrname & data$V3[]>=minCov & data$V3[]<=maxCov], type="h", col="steelblue4", xlim=c(x_min, x_max), ylim=c((-1)*max_read, max_read), axes=F, ylab="Read count", xlab="")
 			points(data$V2[data$V1[]==chrname & data$V4[]>=minCov & data$V4[]<=maxCov], (-1)*data$V4[data$V1[]==chrname & data$V4[]>=minCov & data$V4[]<=maxCov], type="h", col="olivedrab");
