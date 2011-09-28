@@ -1,3 +1,20 @@
+
+
+
+
+#linear fitting
+
+peakFun<-function(x,k1,m,b,k2){
+ ifelse(x<b,k1*x+m,k2*x+(k1-k2)*b+m)
+}
+
+platauFun<-function(x,k1,m,b1,b2,k2){
+ ifelse(x<b1,k1*x+m,ifelse(x<b2,k1*b1+m,k2*(x-b2)+k1*b1+m))
+}
+
+
+
+
 for (chr in 1:5){
 png(paste("summary_chr",chr,".png",sep=""))
 x<-which(data[,1]==chr)
@@ -22,7 +39,7 @@ dev.off()
 
 sapply(1:length(data[,1]),mult_one_fun,r)
 
-assign("shoremap_qtlmem",matrix(c(-1,-1,-1,-1),nrow=1),".GlobalEnv")
+assign("shoremap_qtlmem",matrix(c(-1,-1,-1,-1,-1),nrow=1),".GlobalEnv")
 #assign("shoremap_qtsData",data,".GlobalEnv")
 #  r<- 250000*100/nrOfPlants
 
@@ -70,26 +87,135 @@ mult_one_fun<-function(locus,r,limit=0.9,memmory=1){
  }
 }
 
-ll_two_fun<-function(f,locus,r=50000,memmory=3){
+maxConf<-function(x,minDiff,level,validMin=1,validMax=Inf,maxStart=Inf,minStop=-Inf){
+# print(paste(minDiff,level,sep=" ## "))
+ start=floor(x[1])
+ stop=floor(x[2])
+ validMin<-max(1,validMin)
+ validMax<-min(length(shoremap_qtlData[,1]),validMax)
+# print(paste(start,stop,sep=" ## "))
+ if(start>stop){
+  1000000000+start-stop
+ }else if(start<validMin){
+  1100000000+validMin-start
+ }else if(stop>validMax){
+  1200000000+stop-validMax
+ }else if(start>maxStart){
+  1300000000+start-maxStart
+ }else if(stop<minStop){
+  1400000000+minStop-stop
+ }else{
+  interval<-start:stop
+  f1<-estimateFreq_one(interval,1)
+  f2<-estimateFreq_one(interval,2)
+  diff<-abs(f1-f2)
+  if(diff>=minDiff){
+   -(shoremap_qtlData[stop,2]-shoremap_qtlData[start,2])
+  }else{
+   assign("shoremap_interval",interval,".GlobalEnv")
+   f1e<-f1
+   f2e<-f2
+   if(f1e<f2e){
+    f1e<-max(0,f1e-(minDiff-diff)/2)
+    f2e<-f1e+minDiff
+   }else{
+    f1e<-min(f1e+(minDiff-diff)/2,1)
+    f2e<-f1e-minDiff
+   }
+   restricted<-mle2(ll_rest_two,start=list(f1=f1e,f2=f2e),fixed=list(minDiff=minDiff))
+   full<-ll_one_fun(f1,interval,1)+ll_one_fun(f2,interval,2)
+   p<-pchisq(-2*(full-restricted@min),1)
+#   print(paste(p,start,stop,sep=" ## "))
+   if(p<=level){
+    ll<--(shoremap_qtlData[stop,2]-shoremap_qtlData[start,2]+log(1-p))
+    print(paste(p,start,stop,shoremap_qtlData[start,2],shoremap_qtlData[stop,2],ll,sep=" ## "))
+    ll
+   }else{
+    shoremap_qtlData[stop,2]-shoremap_qtlData[start,2]
+   }
+  }
+ }
+}
+
+ll_rest_two<-function(f1,f2,minDiff){
+ if(f1<0||f1>1){
+  110000+abs(f1-0.5)
+ }else if(f2<0 || f2>1){
+  120000+abs(f2-0.5)
+ }else if(abs(f1-f2)<minDiff){
+  130000+abs(f1-f2)
+ }else{
+  ll_one_fun(f1,shoremap_interval,1)+ll_one_fun(f2,shoremap_interval,2)
+ }
+}
+
+estimateFreq_one<-function(interval,memory=1){
+ cols<-c(4,5)
+ if(memory==2){
+  cols<-c(8,9)
+ }
+ f<-colSums(shoremap_qtlData[interval,cols])
+ f[1]/sum(f)
+}
+
+estimateFreq_two<-function(interval){
+ cols<-c(4,5,8,9)
+ f<-colSums(shoremap_qtlData[interval,cols])
+ (f[1]+f[3])/sum(f)
+}
+
+
+ll_one_fun<-function(f,interval,memory=1){
+ cols<-c(4,5)
+ if(memory==2){
+  cols<-c(8,9)
+ }
+ nrOfPlants<-500
+ fc<-floor(f*nrOfPlants)/nrOfPlants
+ if(fc<0 || fc>1){
+  110000+abs(fc-0.5)
+ }else if(sum(shoremap_qtlmem[,1]==fc &shoremap_qtlmem[,2]==min(interval) & shoremap_qtlmem[,3]==max(interval) & shoremap_qtlmem[,4]==memory )==1) {
+  shoremap_qtlmem[shoremap_qtlmem[,1]==fc &shoremap_qtlmem[,2]==min(interval) & shoremap_qtlmem[,3]==max(interval)& shoremap_qtlmem[,4]==memory,5]
+ }else{
+  l<--sum(apply(shoremap_qtlData[interval,cols],1,function(x){dbinom(x[1],size=sum(x),prob=fc,log=TRUE)}))
+  assign("shoremap_qtlmem",rbind(shoremap_qtlmem,c(fc,min(interval),max(interval),memory,l)),".GlobalEnv")
+  l
+ }
+}
+
+ll_two_fun<-function(f,interval,memory=3){
  cols1<-c(4,5)
  cols2<-c(8,9)
  nrOfPlants<-500
  fc<-floor(f*nrOfPlants)/nrOfPlants
  if(fc<0 || fc>1){
   110000+abs(fc-0.5)
- }else if(sum(shoremap_qtlmem[,1]==fc &shoremap_qtlmem[,2]==locus &shoremap_qtlmem[,3]==memmory )==1) {
-  shoremap_qtlmem[shoremap_qtlmem[,1]==fc &shoremap_qtlmem[,2]==locus &shoremap_qtlmem[,3]==memmory,4]
  }else{
-  l<- ll_one_fun(fc,locus,r,1)+ll_one_fun(fc,locus,r,2)
+  l<- ll_one_fun(fc,interval,1)+ll_one_fun(fc,interval,2)
+  l
+ }
+}
+
+ll_two_fun_withQ<-function(f,locus,r=50000,memory=3){
+ cols1<-c(4,5)
+ cols2<-c(8,9)
+ nrOfPlants<-500
+ fc<-floor(f*nrOfPlants)/nrOfPlants
+ if(fc<0 || fc>1){
+  110000+abs(fc-0.5)
+ }else if(sum(shoremap_qtlmem[,1]==fc &shoremap_qtlmem[,2]==locus &shoremap_qtlmem[,3]==memory )==1) {
+  shoremap_qtlmem[shoremap_qtlmem[,1]==fc &shoremap_qtlmem[,2]==locus &shoremap_qtlmem[,3]==memory,4]
+ }else{
+  l<- ll_one_fun_withQ(fc,locus,r,1)+ll_one_fun_withQ(fc,locus,r,2)
 #  print(paste(fc,l,sep=" ## "))
   assign("shoremap_qtlmem",rbind(shoremap_qtlmem,c(fc,locus,memmory,l)),".GlobalEnv")
   l
  }
 }
 
-ll_one_fun<-function(f,locus,r=50000,memmory=1){
+ll_one_fun_withQ<-function(f,locus,r=50000,memory=1){
  cols<-c(4,5)
- if(memmory==2){
+ if(memory==2){
   cols<-c(8,9)
  }
 # print(summary(q))
@@ -97,8 +223,8 @@ ll_one_fun<-function(f,locus,r=50000,memmory=1){
  fc<-floor(f*nrOfPlants)/nrOfPlants
  if(fc<0 || fc>1){
   110000+abs(fc-0.5)
- }else if(sum(shoremap_qtlmem[,1]==fc &shoremap_qtlmem[,2]==locus &shoremap_qtlmem[,3]==memmory )==1) {
-  shoremap_qtlmem[shoremap_qtlmem[,1]==fc &shoremap_qtlmem[,2]==locus &shoremap_qtlmem[,3]==memmory,4]
+ }else if(sum(shoremap_qtlmem[,1]==fc &shoremap_qtlmem[,2]==locus &shoremap_qtlmem[,3]==memory )==1) {
+  shoremap_qtlmem[shoremap_qtlmem[,1]==fc &shoremap_qtlmem[,2]==locus &shoremap_qtlmem[,3]==memory,4]
  }else{
 #  r<- 250000*100/nrOfPlants
 #  q<- sapply(abs(shoremap_qtlData[,2]-shoremap_qtlData[locus,2]),q_fun,r)
