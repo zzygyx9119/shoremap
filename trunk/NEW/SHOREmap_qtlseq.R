@@ -123,7 +123,7 @@ ll_one_fun<-function(f,interval,memory=1){
   cols<-c(8,9)
  }
  nrOfPlants<-500
- fc<-floor(f*nrOfPlants)/nrOfPlants
+ fc<-min(max(floor(f*nrOfPlants),1),499)/nrOfPlants #fulhack
  if(fc<0 || fc>1){
   110000+abs(fc-0.5)
  }else if(sum(shoremap_qtlmem[,1]==fc &shoremap_qtlmem[,2]==min(interval) & shoremap_qtlmem[,3]==max(interval) & shoremap_qtlmem[,4]==memory )==1) {
@@ -228,9 +228,11 @@ if(length(args)==4){
 #Parameters
 winSize<-500000
 winStep<-10000
+p.valueCutoff<-0.2
 minMarkersInWindow<-10
 minCoverage <- 4
 maxCoverage <- 300
+minFrequencyChange<-0.05
 
 #prep data
 hs<-read.table(high_file)
@@ -266,7 +268,11 @@ if(qtl_file==""){
 hs.freq<-hs[,3]/rowSums(hs[,3:5])
 ls.freq<-ls[,3]/rowSums(ls[,3:5])
 
-data<- cbind(hs[,1:2],hs.freq,hs[,3:5],ls.freq,ls[,3:5],abs(hs.freq-ls.freq))
+data<- cbind(hs[,1:2],hs.freq,hs[,3:5],ls.freq,ls[,3:5],hs.freq-ls.freq)
+
+p<-apply(data,1,function(x) fisher.test(matrix(as.numeric(x[c(4,5,8,9)]),nrow=2))$p.value)
+
+data<-cbind(data,p)
 
 estimates<-c()
 
@@ -278,26 +284,85 @@ par(mfrow=c(ceiling(nrOfChrs/2),2))
 for(chr in unique(data[,1])){
  data2<-data[data[,1]==chr,]
 # png()
+ plot(data2[,2],data2[,11],main=paste("chr",chr),xlab="pos",ylab="frequncy difference")
+ shifts<-seq(0,winSize-1,winStep)
+
+ #for each shift value, calculate the p score for each window
+ unsorted<-sapply(shifts,function(shift){
+  #total count in each window
+  windowsAll<-floor((data2[,2]+shift)/winSize)
+  markerCount<-table(windowsAll)
+  markerCount<-cbind(as.numeric(rownames(markerCount)),markerCount)
+  #filter on p-value. Only use markers with p-values below the cutoff
+  passedData<-data2[data2[,12]<p.valueCutoff,]
+  #calculate windows
+  windows<-floor((passedData[,2]+shift) /winSize)
+  #only use windows with more than the minimum number of markers
+  passedCount<- table(windows)
+  passedCountMatrix<-cbind(as.numeric(rownames(passedCount)),passedCount)
+  windowsToUse<-as.numeric(rownames(passedCount)[passedCount>minMarkersInWindow])
+  markersToUse<- windows %in% windowsToUse
+  markersAllToUse<- windowsAll %in% windowsToUse #NEW
+  windowsAll<-windowsAll[markersAllToUse] #NEW
+  passedData<-passedData[markersToUse,]
+  windows<-windows[markersToUse]
+  #calculate scores
+  #adjusted allele score
+  aas<-tapply(data2[,11][markersAllToUse],windowsAll,function(window){sum(window)})*sapply(unique(windowsAll), function(win) sum(passedCountMatrix[passedCountMatrix[,1]==win,2]))/markerCount[markerCount[,1] %in% unique(windowsAll),2]**2 #CHANGED
+  #allele score
+  aa<-tapply(passedData[,11],windows,function(window){sum(window)})/markerCount[markerCount[,1] %in% unique(windows),2] 
+  #p score
+  tp<-tapply(passedData[,12],windows,function(window){sum(window)})/markerCount[markerCount[,1] %in% unique(windows),2]
+#  pos<-tapply(passedData[,2],windows,mean)
+  pos<-sapply(unique(windows),function(i) (i+0.5)*winSize-shift)
+  cbind(pos,tp,aa,aas)
+ },simplify=F)
+
+ pos<-c(sapply(unsorted,function(i) i[,1]),recursive=T)
+ tp<-c(sapply(unsorted,function(i) i[,2]),recursive=T)
+ aa<-c(sapply(unsorted,function(i) i[,3]),recursive=T)
+ aas<-c(sapply(unsorted,function(i) i[,4]),recursive=T)
+ o<-sort.int(pos,index.return=T)
+ sorted<-t(sapply(o$ix,function(i) c(pos[i],tp[i],aa[i],aas[i])))
+ lines(sorted[,c(1,4)],col="red")
+
+
 
  #predicting the number of peaks
- plot(data2[,2],data2[,11],main=paste("chr",chr),xlabel="pos",ylabel="frequncy difference")
- y.loess<- loess(y~x, span=0.4,data.frame(x=data2[,2],y=data2[,11]))
- y.predict<-predict(y.loess,data.frame(x=data2[,2]))
- lines(data2[,2],y.predict,col="skyblue")
+
+ y.loess<- loess(y~x, span=0.1,data.frame(x=sorted[,1],y=sorted[,4]))
+ y.predict<-predict(y.loess,data.frame(x=sorted[,1]))
+ lines(sorted[,1],y.predict,col="steelblue")
 
  maxPeakDiff<-sign(diff(c(-Inf,y.predict,-Inf)))
  maxPeakID<-which(maxPeakDiff!=0)
  maxPeakIndex<-maxPeakID[which(diff(maxPeakDiff[maxPeakID])==-2)]
+ maxPeakCount<-length(maxPeakIndex)
  minPeakDiff<-sign(diff(c(-Inf,-y.predict,-Inf)))
  minPeakID<-which(minPeakDiff!=0)
  minPeakIndex<-minPeakID[which(diff(minPeakDiff[minPeakID])==-2)]
+ minPeakCount<-length(minPeakIndex)
 
- for(peak in maxPeakIndex){
+ #filter peaks
+ 
+ lMinIndex<-minPeakIndex[1:(maxPeakCount-(minPeakIndex[1]>=maxPeakIndex[1]))]
+ if(minPeakIndex[1]>=maxPeakIndex[1]){
+  lMinIndex<-c(maxPeakIndex[1],lMinIndex)
+ }
+ lDiff <- y.predict[maxPeakIndex]-y.predict[lMinIndex]
+
+ rMinIndex<-minPeakIndex[(minPeakCount-maxPeakCount+1+(minPeakIndex[minPeakCount]<=maxPeakIndex[maxPeakCount])):minPeakCount]
+ if(minPeakIndex[minPeakCount]<=maxPeakIndex[maxPeakCount]){
+  rMinIndex<-c(rMinIndex,maxPeakIndex[maxPeakCount])
+ }
+ rDiff<- y.predict[maxPeakIndex]-y.predict[rMinIndex]
+
+ for(peak in maxPeakIndex[rDiff>minFrequencyChange |lDiff>minFrequencyChange]){
   #extract region
   assign("shoremap_qtlmem",matrix(c(-1,-1,-1,-1,-1),nrow=1),".GlobalEnv")
-  lowerBoundary<-max(c(minPeakIndex[minPeakIndex<peak],1))
-  upperBoundary<-min(c(minPeakIndex[minPeakIndex>peak],length(data2[,1])))
-  data3<-data2[lowerBoundary:upperBoundary,]
+  lowerBoundary<-sorted[max(c(minPeakIndex[minPeakIndex<peak],1)),1]
+  upperBoundary<-sorted[min(c(minPeakIndex[minPeakIndex>peak],length(sorted[,1]))),1]
+  data3<-data2[data2[,2]>=lowerBoundary&data2[,2]<=upperBoundary,]
   shifts<-seq(0,winSize-1,winStep)
   assign("shoremap_qtlData",data3,".GlobalEnv")
 
@@ -308,22 +373,26 @@ for(chr in unique(data[,1])){
    d<-tapply(1:length(data3[,1]),windows,function(interval){
     abs(estimateFreq_one(interval,1)-estimateFreq_one(interval,2))
    })
+   s<-table(windows)
    interval<-which(windows==unique(windows)[which.max(d)])
-   list(md=d,best=max(d),interval=interval)
+   list(md=d,best=max(d),interval=interval,size=s)
   })
   md<-c(md_long[1,],recursive=TRUE)
+  ms<-c(md_long[4,],recursive=TRUE)
   mp<-c(sapply(shifts,function(shift){
    windows<-floor((data3[,2]+shift)/winSize)
-   tapply(data3[,2],windows,mean)
+ #  tapply(data3[,2],windows,mean)
+   sapply(unique(windows),function(i) (i+0.5)*winSize-shift)
   }),recursive=TRUE)
-  wins<-t(sapply(sort(mp,index.return=TRUE)$ix,function(i) c(mp[i],md[i])))
+  wins<-t(sapply(sort(mp,index.return=TRUE)$ix,function(i) c(mp[i],md[i],ms[i])))
+  wins<-wins[wins[,1]>lowerBoundary & wins[,1]<upperBoundary & wins[,3]>minMarkersInWindow,1:2]
   lines(wins[,1],wins[,2],col="violetred")
 
   #adjust frequency
   minDiff<-max(wins[,2])
   minDiff<-floor(minDiff*1000)/1000
   interval<-md_long[3,which.max(c(md_long[2,],recursive=TRUE))]$interval
-  roughEst<-mean(c(min(interval),max(interval)))
+  roughEst<-round(mean(data3[interval,2]))
   abline(v=roughEst,col="steelblue")  
 
   #identify window
