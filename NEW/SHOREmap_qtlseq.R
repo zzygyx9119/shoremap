@@ -116,7 +116,7 @@ windowedScoreOld<-function(data2,shifts,minMarkersInWindow,p.valueCutoff,winSize
  #adjusted allele score
 # aas<-tapply(data2[,11][markersAllToUse],windowsAll,function(window){sum(window)})*sapply(unique(windowsAll), function(win) sum(passedCountMatrix[passedCountMatrix[,1]==win,2]))/markerCount[markerCount[,1] %in% unique(windowsAll),2]**2 #CHANGED
  #allele score
- aa<-tapply(passedData[,11],windows,function(window){sum(abs(window))})/markerCount[markerCount[,1] %in% unique(windows),2] 
+ aa<-tapply(passedData[,11],windows,function(window){sum(window)})/markerCount[markerCount[,1] %in% unique(windows),2] 
  #p score
 # tp<-tapply(passedData[,12],windows,function(window){sum(window)})/markerCount[markerCount[,1] %in% unique(windows),2]
 #  pos<-tapply(passedData[,2],windows,mean)
@@ -252,9 +252,9 @@ optimFn<-function(x,winSize,low,high,direction){
 
 optimGr<-function(x,winSize,low,high,direction){
  if(x<low){
-  x-low
+  direction*(x-low)
  }else if(x>high){
-  x-high
+  direction*(x-high)
  }else{
   markers<-which(shoremap_qtlData[,2]>=x-winSize/2 & shoremap_qtlData[,2]<=x+winSize/2)
   -direction*lm(y~x,weights=rowSums(shoremap_qtlData[markers,c(4:6,8:10)]),data=data.frame(x=shoremap_qtlData[markers,2],y=shoremap_qtlData[markers,11]))$coefficients[2]
@@ -296,7 +296,7 @@ minCoverage <- 4
 maxCoverage <- 300
 minFrequencyChange<-0.05
 minAbsolutePeak<-0.05
-bootstrap=500
+bootstrap=100
 
 #prep data
 hs<-read.table(high_file)
@@ -388,7 +388,7 @@ for(chr in unique(data[,1])){
  #for each shift value, calculate the p score for each window
  lines(sorted[,c(1,4)],col="red")
  
- peaks<-predictPeaks(sorted,minFrequencyChange,minAbsolutePeak,cutOffs,winSize,TRUE,0.17)
+ peaks<-predictPeaks(sorted,minFrequencyChange,minAbsolutePeak,cutOffs,winSize,TRUE,0.2)
  if(nrow(peaks)>0){
   for(peakIndex in 1:nrow(peaks)){
    #extract region
@@ -422,10 +422,11 @@ for(chr in unique(data[,1])){
    lines(wins[,1],wins[,2],col="violetred")
 
    #adjust frequency
-   minDiff<-max(wins[,2])
-   minDiff<-floor(minDiff*1000)/1000
+   minIndex<-which.max(wins[,2])
+   minDiff<-wins[minIndex,2]
+   minDiff<-abs(floor(minDiff*1000)/1000)
    direction<-sign(mean(c(md_long[2,],recursive=T)))
-   interval<-md_long[3,which.max(direction*c(md_long[2,],recursive=TRUE))]$interval
+   interval<-md_long[3,which(c(md_long[2,],recursive=TRUE)==wins[minIndex,2])[1]]$interval
    roughEst<-round(mean(data3[interval,2]))
 
   
@@ -439,7 +440,7 @@ for(chr in unique(data[,1])){
    }
    rect(data3[opt$par[1],2],-0.02,data3[opt$par[2],2],0.02,col="limegreen",border="limegreen")
 
-   est<-optim(par=roughEst,fn=optimFn,gr=optimGr,winSize=winSize,low=data3[opt$par[1],2],high=data3[opt$par[2],2],direction=direction)$par[1]
+   est<-round(optim(par=roughEst,fn=optimFn,gr=optimGr,winSize=winSize,low=data3[opt$par[1],2],high=data3[opt$par[2],2],direction=direction)$par[1])
    abline(v=est,col="steelblue")
 
    estimates<-rbind(estimates,c(chr,data3[opt$par[1],2],data3[opt$par[2],2],minDiff,est))
