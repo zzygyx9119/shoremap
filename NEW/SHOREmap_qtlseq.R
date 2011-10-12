@@ -173,17 +173,19 @@ windowedScore<-function(data2,winSize,winStep,minMarkersInWindow,p.valueCutoff){
  }
 }
 
-predictAllPeaksSub<-function(sorted,winSize,direction){
+predictAllPeaksSub<-function(sorted,winSize,direction,doPlot=FALSE,span=0.17){
  direction<-sign(direction)
  if(direction==0){
   direction=1
  }
  #predicting the number of peaks
- span<-6*max(sorted[,1])/winSize/nrow(sorted)
- span<-0.1
+# span<-nrWin*max(sorted[,1])/winSize/nrow(sorted)
+# print(span)
  y.loess<- loess(y~x, span=span,data.frame(x=sorted[,1],y=sorted[,4]))
  y.predict<-direction*predict(y.loess,data.frame(x=sorted[,1]))
-# lines(sorted[,1],y.predict,col="steelblue")
+ if(doPlot){
+  lines(sorted[,1],direction*y.predict,col="steelblue")
+ }
 
  maxPeakDiff<-sign(diff(c(-Inf,y.predict,-Inf)))
  maxPeakID<-which(maxPeakDiff!=0)
@@ -210,9 +212,9 @@ predictAllPeaksSub<-function(sorted,winSize,direction){
  cbind(maxPeakIndex,direction*y.predict[maxPeakIndex],lDiff,rDiff,lMinIndex,rMinIndex,rep(direction,length(maxPeakIndex)))
 }
 
-predictAllPeaks<-function(sorted,winSize){
- minimas<-predictAllPeaksSub(sorted,winSize,-1)
- maximas<-predictAllPeaksSub(sorted,winSize,1)
+predictAllPeaks<-function(sorted,winSize,doPlot=FALSE,span=0.17){
+ minimas<-predictAllPeaksSub(sorted,winSize,-1,doPlot,span)
+ maximas<-predictAllPeaksSub(sorted,winSize,1,FALSE,span)
  peaks<-rbind(maximas[maximas[,2]>0,],minimas[minimas[,2]<0,])
  peaks[sort(peaks[,1],index.return=TRUE)$ix,]
 }
@@ -222,8 +224,8 @@ predictPeaks_p<-function(x,cutOffs){
  max(sum(cutOffs[,1]>x[2]), sum(cutOffs[,2]>max(x[3:4])))/nrow(cutOffs)
 }
 
-predictPeaks<-function(sorted,minFrequencyChange,minAbsolutePeak,cutOffs,winSize){
- peaks<-predictAllPeaks(sorted,winSize)
+predictPeaks<-function(sorted,minFrequencyChange,minAbsolutePeak,cutOffs,winSize,doPlot,span){
+ peaks<-predictAllPeaks(sorted,winSize,doPlot,span)
  
  mPeak<-peaks[,3]>minFrequencyChange | peaks[,4]>minFrequencyChange
  
@@ -240,7 +242,7 @@ predictPeaks<-function(sorted,minFrequencyChange,minAbsolutePeak,cutOffs,winSize
 }
 
 optimFn<-function(x,winSize,low,high,direction){
- if(x>=low || x<=high){
+ if(x>=low && x<=high){
   markers<-which(shoremap_qtlData[,2]>=x-winSize/2 & shoremap_qtlData[,2]<=x+winSize/2)
   -direction*(estimateFreq_one(markers,1)-estimateFreq_one(markers,2))
  }else{
@@ -287,14 +289,14 @@ if(length(args)==4){
 
 #Parameters
 winSize<-1000000
-winStep<-100000
+winStep<-10000
 p.valueCutoff<-0.2
 minMarkersInWindow<-10
 minCoverage <- 4
 maxCoverage <- 300
 minFrequencyChange<-0.05
 minAbsolutePeak<-0.05
-bootstrap=100
+bootstrap=500
 
 #prep data
 hs<-read.table(high_file)
@@ -353,11 +355,11 @@ cutOffs<-matrix(c(sapply(unique(data[,1]),function(chr){
   d2[,11]<-d2[,11]*sample(c(1,-1),nrOfMarkers,replace=TRUE)
   sorted<-windowedScore(d2,winSize,winStep,minMarkersInWindow,p.valueCutoff)
   sorted<-sorted[sorted[,1]>min(data2[,2])+winSize/2 & sorted[,1]<max(data2[,2])-winSize/2,]
-  peaks<-predictAllPeaks(sorted,winSize)
+  peaks<-predictAllPeaks(sorted,winSize,FALSE)
 #  lines(sorted[,c(1,4)],col="red")  
   rbind(peaks[,2],pmax(peaks[,3],peaks[,4]))
  },simplify=TRUE)
-}),recursive=TRUE),ncol=2,byrow=TRUE)->cutOffs
+}),recursive=TRUE),ncol=2,byrow=TRUE)
 #})
 
 
@@ -378,7 +380,7 @@ par(mfrow=c(ceiling(nrOfChrs/2),2))
 for(chr in unique(data[,1])){
  data2<-data[data[,1]==chr,]
 # png()
- plot(data2[,2],data2[,11],main=paste("chr",chr),xlab="pos",ylab="frequncy difference")
+ plot(data2[,2],data2[,11],main=paste("chr",chr),xlab="pos",ylab="frequncy difference",ylim=c(-1,1))
 
 
  sorted<-windowedScore(data2,winSize,winStep,minMarkersInWindow,p.valueCutoff)
@@ -386,7 +388,7 @@ for(chr in unique(data[,1])){
  #for each shift value, calculate the p score for each window
  lines(sorted[,c(1,4)],col="red")
  
- peaks<-predictPeaks(sorted,minFrequencyChange,minAbsolutePeak,cutOffs,winSize)
+ peaks<-predictPeaks(sorted,minFrequencyChange,minAbsolutePeak,cutOffs,winSize,TRUE,0.17)
  if(nrow(peaks)>0){
   for(peakIndex in 1:nrow(peaks)){
    #extract region
@@ -402,7 +404,7 @@ for(chr in unique(data[,1])){
    md_long<-sapply(shifts,function(shift){
     windows<-floor((data3[,2]+shift)/winSize)
     d<-tapply(1:length(data3[,1]),windows,function(interval){
-     abs(estimateFreq_one(interval,1)-estimateFreq_one(interval,2))
+     estimateFreq_one(interval,1)-estimateFreq_one(interval,2)
     })
     s<-table(windows)
     interval<-which(windows==unique(windows)[which.max(d)])
@@ -416,7 +418,7 @@ for(chr in unique(data[,1])){
     sapply(unique(windows),function(i) (i+0.5)*winSize-shift)
    }),recursive=TRUE)
    wins<-t(sapply(sort(mp,index.return=TRUE)$ix,function(i) c(mp[i],md[i],ms[i])))
-   wins<-wins[wins[,1]>lowerBoundary & wins[,1]<upperBoundary & wins[,3]>minMarkersInWindow,1:2]
+   wins<-wins[wins[,1]>lowerBoundary+winSize/2 & wins[,1]<upperBoundary-winSize/2 & wins[,3]>minMarkersInWindow,1:2]
    lines(wins[,1],wins[,2],col="violetred")
 
    #adjust frequency
@@ -435,7 +437,7 @@ for(chr in unique(data[,1])){
     bestValue<-opt$value
     opt<-optim(fn=maxConf,par=c(floor(opt$par[1]),floor(opt$par[2])),minDiff=minDiff,level=0.99)
    }
-   rect(data3[opt$par[1],2],0,data3[opt$par[2],2],0.04,col="limegreen",border="limegreen")
+   rect(data3[opt$par[1],2],-0.02,data3[opt$par[2],2],0.02,col="limegreen",border="limegreen")
 
    est<-optim(par=roughEst,fn=optimFn,gr=optimGr,winSize=winSize,low=data3[opt$par[1],2],high=data3[opt$par[2],2],direction=direction)$par[1]
    abline(v=est,col="steelblue")
