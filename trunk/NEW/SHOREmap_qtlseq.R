@@ -231,13 +231,13 @@ predictPeaks<-function(sorted,minFrequencyChange,minAbsolutePeak,cutOffs,winSize
  
  if(sum(mPeak)>0){
   p<-sapply(which(mPeak),function(i) predictPeaks_p(peaks[i,],cutOffs))
-  cbind(matrix(c(peaks[mPeak,c(1,5:6)]),ncol=3),p)
+  cbind(matrix(c(peaks[mPeak,c(1,5:7)]),ncol=4),p)
  }else if(max(peaks[,2])>minAbsolutePeak){
   #treat it as one big peak
   p<-predictPeaks_p(peaks[which.max(abs(peaks[,2])),],cutOffs)
-  matrix(c(peaks[which.max(abs(peaks[,2])),1],min(peaks[,5]),max(peaks[,6]),p),ncol=4)
+  matrix(c(peaks[which.max(abs(peaks[,2])),1],min(peaks[,5]),max(peaks[,6]),peaks[which.max(abs(peaks[,2])),7],p),ncol=5)
  }else{
-  matrix(c(peaks[mPeak,c(1,5:6)]),ncol=4)
+  matrix(c(peaks[mPeak,c(1,5:7)]),ncol=5)
  }
 }
 
@@ -296,7 +296,7 @@ minCoverage <- 4
 maxCoverage <- 300
 minFrequencyChange<-0.05
 minAbsolutePeak<-0.05
-bootstrap=100
+bootstrap=1000
 
 #prep data
 hs<-read.table(high_file)
@@ -393,6 +393,7 @@ for(chr in unique(data[,1])){
   for(peakIndex in 1:nrow(peaks)){
    #extract region
    peak<-peaks[peakIndex,1]
+   direction<-peaks[peakIndex,4]
    assign("shoremap_qtlmem",matrix(c(-1,-1,-1,-1,-1),nrow=1),".GlobalEnv")
    lowerBoundary<-sorted[peaks[peakIndex,2],1]
    upperBoundary<-sorted[peaks[peakIndex,3],1]
@@ -407,8 +408,8 @@ for(chr in unique(data[,1])){
      estimateFreq_one(interval,1)-estimateFreq_one(interval,2)
     })
     s<-table(windows)
-    interval<-which(windows==unique(windows)[which.max(d)])
-    list(md=d,best=max(d),interval=interval,size=s)
+    interval<-which(windows==unique(windows)[which.max(direction*d)])
+    list(md=d,best=direction*max(direction*d),interval=interval,size=s)
    })
    md<-c(md_long[1,],recursive=TRUE)
    ms<-c(md_long[4,],recursive=TRUE)
@@ -421,12 +422,14 @@ for(chr in unique(data[,1])){
    wins<-wins[wins[,1]>lowerBoundary+winSize/2 & wins[,1]<upperBoundary-winSize/2 & wins[,3]>minMarkersInWindow,1:2]
    lines(wins[,1],wins[,2],col="violetred")
 
+ 
    #adjust frequency
-   minIndex<-which.max(wins[,2])
+   minIndex<-which.max(direction*wins[,2])
    minDiff<-wins[minIndex,2]
    minDiff<-abs(floor(minDiff*1000)/1000)
-   direction<-sign(mean(c(md_long[2,],recursive=T)))
-   interval<-md_long[3,which(c(md_long[2,],recursive=TRUE)==wins[minIndex,2])[1]]$interval
+
+#   interval<-md_long[3,which(c(md_long[2,],recursive=TRUE)==wins[minIndex,2])[1]]$interval
+   interval<-which(data3[,2]>=wins[minIndex,1]-winSize/2 & data3[,2]<wins[minIndex,1]+winSize/2)
    roughEst<-round(mean(data3[interval,2]))
 
   
