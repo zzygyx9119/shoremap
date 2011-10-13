@@ -216,7 +216,7 @@ predictAllPeaks<-function(sorted,winSize,doPlot=FALSE,span=0.17){
  minimas<-predictAllPeaksSub(sorted,winSize,-1,doPlot,span)
  maximas<-predictAllPeaksSub(sorted,winSize,1,FALSE,span)
  peaks<-rbind(maximas[maximas[,2]>0,],minimas[minimas[,2]<0,])
- peaks[sort(peaks[,1],index.return=TRUE)$ix,]
+ matrix(peaks[sort(peaks[,1],index.return=TRUE)$ix,],ncol=7)
 }
 
 
@@ -362,11 +362,12 @@ cutOffs<-matrix(c(sapply(unique(data[,1]),function(chr){
 }),recursive=TRUE),ncol=2,byrow=TRUE)
 #})
 
+#cutOffs<- matrix(rep(0,20000),ncol=2)
 
 cutOffs<-cbind(sort(abs(cutOffs[,1])),sort(cutOffs[,2]))
 
-minAbsolutePeak<-cutOffs[round(nrow(cutOffs)*0.95),1]
-minFrequencyChange<-cutOffs[round(nrow(cutOffs)*0.95),2]
+minAbsolutePeak<-max(cutOffs[round(nrow(cutOffs)*0.95),1],minAbsolutePeak)
+minFrequencyChange<-max(cutOffs[round(nrow(cutOffs)*0.95),2],minFrequencyChange)
 
 estimates<-c()
 
@@ -441,7 +442,7 @@ for(chr in unique(data[,1])){
     bestValue<-opt$value
     opt<-optim(fn=maxConf,par=c(floor(opt$par[1]),floor(opt$par[2])),minDiff=minDiff,level=0.99)
    }
-   rect(data3[opt$par[1],2],-0.02,data3[opt$par[2],2],0.02,col="limegreen",border="limegreen")
+   rect(data3[opt$par[1],2],0.96,data3[opt$par[2],2],1,col="limegreen",border="limegreen")
 
    est<-round(optim(par=roughEst,fn=optimFn,gr=optimGr,winSize=winSize,low=data3[opt$par[1],2],high=data3[opt$par[2],2],direction=direction)$par[1])
    abline(v=est,col="steelblue")
