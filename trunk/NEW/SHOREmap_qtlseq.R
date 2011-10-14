@@ -294,8 +294,8 @@ p.valueCutoff<-0.2
 minMarkersInWindow<-10
 minCoverage <- 4
 maxCoverage <- 300
-minFrequencyChange<-0#0.05
-minAbsolutePeak<-0#0.05
+minFrequencyChange<-0.05
+minAbsolutePeak<-0.05
 bootstrap=1000
 
 #prep data
