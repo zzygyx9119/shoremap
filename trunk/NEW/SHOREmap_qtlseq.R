@@ -294,8 +294,8 @@ p.valueCutoff<-0.2
 minMarkersInWindow<-10
 minCoverage <- 4
 maxCoverage <- 300
-minFrequencyChange<-0.05
-minAbsolutePeak<-0.05
+minFrequencyChange<-0#0.05
+minAbsolutePeak<-0#0.05
 bootstrap=1000
 
 #prep data
@@ -362,12 +362,28 @@ cutOffs<-matrix(c(sapply(unique(data[,1]),function(chr){
 }),recursive=TRUE),ncol=2,byrow=TRUE)
 #})
 
+#cutOffs2<-c(sapply(unique(data[,1]),function(chr){
+# data2<-data[data[,1]==chr,]
+# nrOfMarkers<-nrow(data2)
+# nrInWindow<-round(nrOfMarkers/max(data2[,2])*winSize)
+# replicate(bootstrap,{
+#  d2<-data2
+#  d2[,11]<-d2[,11]*sample(c(1,-1),nrOfMarkers,replace=TRUE)
+#  sorted<-windowedScore(d2,winSize,winStep,minMarkersInWindow,p.valueCutoff)
+#  sorted[sorted[,1]>min(data2[,2])+winSize/2 & sorted[,1]<max(data2[,2])-winSize/2,3]
+# },simplify=TRUE)
+#}),recursive=TRUE)
+
+
+
 #cutOffs<- matrix(rep(0,20000),ncol=2)
 
 cutOffs<-cbind(sort(abs(cutOffs[,1])),sort(cutOffs[,2]))
 
-minAbsolutePeak<-max(cutOffs[round(nrow(cutOffs)*0.95),1],minAbsolutePeak)
-minFrequencyChange<-max(cutOffs[round(nrow(cutOffs)*0.95),2],minFrequencyChange)
+minAbsolutePeak<-max(cutOffs[round(nrow(cutOffs)*0.99),1],minAbsolutePeak)
+minFrequencyChange<-max(cutOffs[round(nrow(cutOffs)*0.99),2],minFrequencyChange)
+
+
 
 estimates<-c()
 
