@@ -232,7 +232,7 @@ toPrint<-do.call(rbind,sapply(unique(data[,1]),function(chr){
  if(cq>0 && ce>0){
   #get True Positive
   pairs<-combn(cq+ce,2)
-  pairs<-pairs[,pairs[1,]<=cq & pairs[2,]>cq]
+  pairs<-matrix(pairs[,pairs[1,]<=cq & pairs[2,]>cq],nrow=2)
   pairs[2,]<-pairs[2,]-cq
   tp<-apply(pairs,2,function(x){
    q[x[1],2]>=e[x[2],1] && q[x[1],2]<=e[x[2],2]
