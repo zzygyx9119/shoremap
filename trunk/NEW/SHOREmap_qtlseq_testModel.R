@@ -1,3 +1,5 @@
+#Metod 2... does not work too good
+
 
 args<-commandArgs(trailingOnly=TRUE)
 
@@ -69,6 +71,30 @@ freq_sub<-function(x,theta,lambda,effect){
  effect*exp(-4/3*abs(x-theta)/lambda)
 }
 
+F=function(x,e1=0.5,e2=-0.5){
+ F=matrix(0,nrow=3)
+ F[1]= x[3]*x[1]+x[2]-e2
+ F[2]= x[3]*x[2]+x[1]-e1
+ F[3]= e2*x[1]-e1*x[2]
+ F
+}
+
+F_wrap<-function(x,e1=0.5,e2=-0.5){
+ if(0>=sign(e1)*x[1] || sign(e1)*x[1]>=abs(e1)){
+#  print(1)
+  NA
+ }else if(0>=sign(e2)*x[2] || sign(e2)*x[2]>=abs(e2)){
+#  print(2)
+  NA
+ }else if(abs(x[3]-0.5)>=0.5){
+#  print(3)
+  NA
+ }else{
+  sum(F(x,e1,e2)**2)
+ }
+}
+
+
 freq<-function(x){
  if(length(x)==1){
   #no QTL linear function between end points
@@ -90,40 +116,46 @@ freq<-function(x){
    #sort by position
    qtlest<-qtlest[sort(qtlest[,1],index.return=TRUE)$ix,]
    #initialize
-   par<-matrix(c(qtlest[1,1],r1,qtlest[1,2],0),ncol=4)
+   par<-matrix(c(qtlest[1,1],r1,qtlest[1,2],-1,-1),ncol=5)
    #calculate inbetween parameters
    for(i in 1:(nrOfQtls-1)){
     if(sign(qtlest[i,2])==sign(qtlest[i+1,2])){
      #same direction
-     lambda<-4/3*(qtlest[i,1]-qtlest[i+1,1])
+     lambda<-4/3*(qtlest[i+1,1]-qtlest[i,1])
      if(qtlest[i,2]>qtlest[i+1,2]){
       #first larger
-      lambda<-lambda/log(abs(qtlest[i+1,2]/qtlest[i,2]))
-      par<-rbind(par,c(qtlest[i,1],lambda,qtlest[i,2],nrow(par)))
-     }else{
       lambda<-lambda/log(abs(qtlest[i,2]/qtlest[i+1,2]))
-      par<-rbind(par,c(qtlest[i+1,1],lambda,qtlest[i+1,2],nrow(par)))
+      par<-rbind(par,c(qtlest[i,1],lambda,qtlest[i,2],-1,-1))
+     }else{
+      lambda<-lambda/log(abs(qtlest[i+1,2]/qtlest[i,2]))
+      par<-rbind(par,c(qtlest[i+1,1],lambda,qtlest[i+1,2],-1,-1))
      }
     }else{
      #different directions
-     x0<-qtlest[i,1]+abs(qtlest[i,2])*(qtlest[i+1,1]-qtlest[i,1])/(abs(qtlest[i,2])+abs(qtlest[i+1,2]))
-     lambda<-4/3*(2*x0-qtlest[i,1]-qtlest[i+1,1])/log(abs(qtlest[i,2]/qtlest[i+1,2]))
-     bp<-c(bp,x0)
-     par<-rbind(par,c(qtlest[i,1],lambda,qtlest[i,2],nrow(par)))
-     par<-rbind(par,c(qtlest[i+1,1],lambda,qtlest[i+1,2],nrow(par)))
+     est<-optim(F_wrap,e1=qtlest[i,2],e2=qtlest[i+1,2],par=c(qtlest[i,2]/2,qtlest[i+1,2]/2,0.1),control=list(maxit=10000))$par
+     lambda<-4/3*(qtlest[i,1]-qtlest[i+1,1])/log(est[3])
+#     x0<-qtlest[i,1]+abs(qtlest[i,2])*(qtlest[i+1,1]-qtlest[i,1])/(abs(qtlest[i,2])+abs(qtlest[i+1,2]))
+#     lambda<-4/3*(2*x0-qtlest[i,1]-qtlest[i+1,1])/log(abs(qtlest[i,2]/qtlest[i+1,2]))
+#     bp<-c(bp,x0)
+#     par<-rbind(par,c(qtlest[i,1],lambda,qtlest[i,2],nrow(par)))
+     par<-rbind(par,c(qtlest[i,1],lambda,est[1],qtlest[i+1,1],est[2]))
     }
    }
   }else{
    #par still needs to be initialized
-   par<-matrix(c(qtlest[1,1],r1,qtlest[1,2],0),ncol=4)
+   par<-matrix(c(qtlest[1,1],r1,qtlest[1,2],-1,-1),ncol=5)
   }
   #add last qtl
-  par<-rbind(par,c(qtlest[nrOfQtls,1],r2,qtlest[nrOfQtls,2],nrow(par)))
+  par<-rbind(par,c(qtlest[nrOfQtls,1],r2,qtlest[nrOfQtls,2],-1,-1))
   windows<-rowSums(sapply(bp,function(b) ifelse(a.t[,1]<b,0,1)))
   b1+c(sapply(unique(windows),function(win){
    pos<-a.t[windows==win,1]
    p<-par[win+1,]
-   freq_sub(pos,p[1],p[2],p[3])
+   if(p[4]<0){
+    freq_sub(pos,p[1],p[2],p[3])
+   }else{
+    freq_sub(pos,p[1],p[2],p[3])+freq_sub(pos,p[4],p[2],p[5])
+   }
   }),recursive=TRUE)
  }
 }
@@ -133,22 +165,28 @@ parameterConstraints<-function(x){
   1
  }else if(any(c(x[seq(7,length(x),3)]<min(a.t[,1]),x[seq(7,length(x),3)]>max(a.t[,1])))){
   #position out of range
-  9e5+sum(-x[seq(7,length(x),3)][x[seq(7,length(x),3)]<min(a.t[,1])]+min(a.t[,1]))+sum(x[seq(7,length(x),3)][x[seq(7,length(x),3)]>max(a.t[,1])]-max(a.t[,1]))
+#  9e5+sum(-x[seq(7,length(x),3)][x[seq(7,length(x),3)]<min(a.t[,1])]+min(a.t[,1]))+sum(x[seq(7,length(x),3)][x[seq(7,length(x),3)]>max(a.t[,1])]-max(a.t[,1]))
+  NA
  }else if(any(x[c(2:3,5:6)]<0)){
   #negative edge rates 
-  8e5-sum(x[c(2:3,5:6)][x[c(2:3,5:6)]<0])
+#  8e5-sum(x[c(2:3,5:6)][x[c(2:3,5:6)]<0])
+  NA
  }else if(any(abs(x[c(seq(8,length(x),3),seq(9,length(x),3))])>1)){
   #too large effects
-  7e5+sum(abs(x[c(seq(8,length(x),3),seq(9,length(x),3))][abs(x[c(seq(8,length(x),3),seq(9,length(x),3))])>1]))
+#  7e5+sum(abs(x[c(seq(8,length(x),3),seq(9,length(x),3))][abs(x[c(seq(8,length(x),3),seq(9,length(x),3))])>1]))
+  NA
  }else if(any(abs(x[c(1,4)]-0.5)>0.5)){
   #too high base line
-  6e5+abs(x[1]-0.5)+abs(x[4]-0.5)
+#  6e5+abs(x[1]-0.5)+abs(x[4]-0.5)
+  NA
  }else if( any(abs(x[1]+x[c(seq(8,length(x),3))]-0.5)>0.5) ){
   #bad combination of base line and effect
-  5e5+sum(abs(x[c(seq(8,length(x),3))][abs(x[1]+x[c(seq(8,length(x),3))]-0.5)>0.5]))
+#  5e5+sum(abs(x[c(seq(8,length(x),3))][abs(x[1]+x[c(seq(8,length(x),3))]-0.5)>0.5]))
+  NA
  }else if( any(abs(x[4]+x[c(seq(9,length(x),3))]-0.5)>0.5) ){
   #bad combination of base line and effect
-  5e5+sum(abs(x[c(seq(9,length(x),3))][abs(x[4]+x[c(seq(9,length(x),3))]-0.5)>0.5]))
+#  5e5+sum(abs(x[c(seq(9,length(x),3))][abs(x[4]+x[c(seq(9,length(x),3))]-0.5)>0.5]))
+  NA
  }else{
   1
  }
@@ -170,8 +208,8 @@ separateParameters<-function(x){
 
 freqBoth<-function(x){
  pc<-parameterConstraints(x)
- if(pc!=1){
-  pc*1000
+ if(is.na(pc)){
+  pc
  }else{
   if(length(x)==1){
    estLambda(x,2)+estLambda(x,3)
@@ -184,8 +222,8 @@ freqBoth<-function(x){
 
 llBoth<-function(x){
  pc<-parameterConstraints(x)
- if(pc!=1){
-  pc*1000
+ if(is.na(pc)){
+  pc
  }else{
   f1<-c()
   f2<-c()
@@ -220,7 +258,7 @@ estPlot<-function(x){
 ll1w<-function(p1,p2,p3,p4,p5,p6,p7,p8,p9){
  x<-c(p1,p2,p3,p4,p5,p6,p7,p8,p9)
  l<-llBoth(x)
-# print(l)
+ print(l)
 # l<-round(l*1000)/1000
  l
 }
@@ -259,7 +297,7 @@ while (opt$val<val-1e-4 && opt$convergence==1) {
 par.start<-opt$par
 
 system.time({
-#opt<-optim(llBoth,par=par.start, method="Nelder-Mead", control=list(parscale=par.start))
+opt<-optim(llBoth,par=par.start, method="Nelder-Mead", control=list(parscale=par.start))
 print(opt$val)
 val<-Inf
 while (opt$val<val && opt$convergence==1) {
@@ -270,9 +308,17 @@ while (opt$val<val && opt$convergence==1) {
 }
 })
 
+fixed<-c(list(),ci@coef)
+
+mle.start<-c(list(),m@coef)
+
 mle.start<-c(list(),opt$par)
 names(mle.start)<-paste("p",1:length(opt$par),sep="")
 
+system.time(m<-mle2(ll1w, start=mle.start))
+system.time(ci<-confint(m,parm=c(7)))
+
+system.time(ci<-confint(m,parm=c(7),control=list(parscale=opt$par)))
 
 
 
@@ -295,86 +341,7 @@ names(mle.start)<-paste("p",1:length(opt$par),sep="")
 
 
 
-freq_sub<-function(x,lambda,effect,theta,baseline){
- baseline+effect*exp(-4/3*abs(x-theta)/lambda)
-}
-
-freq<-function(x){
- lambda1<-x[1]
- lambda2<-x[2]
- effect<-x[3]
- theta<-x[4]
- baseline<-x[5]
- c(freq_sub(a.t[a.t[, 1]<theta, 1], lambda1,effect, theta, baseline), freq_sub(a.t[a.t[, 1]>=theta, 1], lambda2, effect, theta, baseline))
-}
-
-freq_tot<-function(par.matrix){
- rowSums(apply(par.matrix,1,freq))
-}
-
-estLambda<-function(par.matrix,col=2){
- f.est<-freq_tot(par.matrix)
- sum((a.t[,col]-f.est)**2)
-}
-
-calcbic<-function(x){
- 2*llBoth(x)+length(x)*log(nrow(data))
-}
-
-parameterToMatrix<-function(x){
- baseline1<-x[1]
- baseline2<-x[2] 
- par<-matrix(x[c(-1,-2)],ncol=7,byrow=TRUE)
- par<-cbind(matrix(par[, c(1,2,5,7)],ncol=4), matrix(rep(baseline1, nrow(par)), ncol=1), matrix(par[, c(3,4,6,7)], ncol=4), matrix(rep(baseline2, nrow(par)), ncol=1) )
- colnames(par)<-c("lambda1.1", "lambda2.1", "effect.1", "theta.1", "baseline.1", "lambda1.2", "lambda2.2", "effect.2", "theta.2", "baseline.2")
- par
-}
-
-parameterConstraints<-function(full.matrix){
- if(!all(full.matrix[,c(1,2,6,7)]>0)){
-  #negative lambda
-  8e5
- }else if(!all(abs(full.matrix[,c(3,8)])<=1)){
-  #too large effects
-  7e5
- }else if(!all(full.matrix[,c(4,9)]>=min(a.t[,1]) & full.matrix[,c(4,9)]<=max(a.t[,1]))){
-  #estimates outside the chromosome
-  6e5
- }else if(!all(abs(full.matrix[,c(5,10)]-0.5)<=0.5)){
-  #baseline out of bounds
-  5e5
- }else if(!all(abs(full.matrix[,c(5,10)]*nrow(full.matrix)+full.matrix[,c(3,8)]-0.5)<=0.5)){
-  #bad combination of baseline and effect
-  4e5
- }else{
-  1
- }
-}
-
-llBoth<-function(x){
- par.matrix.both<-parameterToMatrix(x)
- pc<-parameterConstraints(par.matrix.both)
- if(pc!=1){
-  pc*1000
- }else{
-  par.matrix.1<-matrix(par.matrix.both[,1:5], ncol=5)
-  par.matrix.2<-matrix(par.matrix.both[,6:10], ncol=5)
-  f1<-freq_tot(par.matrix.1)
-  f2<-freq_tot(par.matrix.2)
-  d1<-cbind(data[,2],rowSums(data[,2:3]),f1)
-  d2<-cbind(data[,4],rowSums(data[,4:5]),f2)
-  -sum(apply(d1,1,function(r) dbinom(r[1],size=r[2],prob=r[3],log=TRUE)))-sum(apply(d2,1,function(r) dbinom(r[1],size=r[2],prob=r[3],log=TRUE)))
- }
-}
-
-ll2w<-function(p1,p2,p3,p4,p5,p6,p7,p8,p9,p10,p11,p12,p13,p14,p15,p16){
- x<-c(p1,p2,p3,p4,p5,p6,p7,p8,p9,p10,p11,p12,p13,p14,p15,p16)
- l<-llBoth(x)
-# print(l)
-# l<-round(l*1000)/1000
- l
-}
-
+# to reimplement
 calculateScale<-function(x){
  scaleBaseline<-1
  scaleQTL<-c(1,1,1,1,1,1,1)
@@ -409,31 +376,6 @@ addQTL<-function(x,direction=1){
  q[5:6]<-direction*q[5:6]
  #use the mean of the previous qtls for the other parameters
  c(baseLine,curEst,q)
-}
-
-l1Est<-function(x){
- par.matrix.both<-parameterToMatrix(x)
- #parameter check
- parameter.check<-parameterConstraints(par.matrix.both)
- if(parameter.check!=1){
-  parameter.check
- }else{ 
-  par.matrix.1<-matrix(par.matrix.both[,1:5], ncol=5)
-  par.matrix.2<-matrix(par.matrix.both[,6:10], ncol=5)
-  estLambda(par.matrix.1,2)+estLambda(par.matrix.2,3)
- }
-}
-
-estPlot<-function(x){
- plot(a.t[,c(1,3)],type="l",ylim=c(0,1))
- lines(a.t[,1:2])
- apply(matrix(unique(qtls[,2]),ncol=1),1,function(x) abline(v=x))
- par.matrix.both<-parameterToMatrix(x)
- par.matrix.1<-matrix(par.matrix.both[,1:5], ncol=5)
- par.matrix.2<-matrix(par.matrix.both[,6:10], ncol=5)
- lines(a.t[,1],freq_tot(par.matrix.1),col="red")
- lines(a.t[,1],freq_tot(par.matrix.2),col="red")
- apply(matrix(unique(par.matrix.1[,4]),ncol=1),1,function(x) abline(v=x,col="red"))
 }
 
 
