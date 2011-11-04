@@ -44,7 +44,7 @@ data<-cbind(ls[toUse,2:4],hs[toUse,3:4])
 toUse<-ls.t[,1]==chr
 
 #a.t should contain windowed estimates
-a.t<-data.frame(pos=ls.t[toUse,2],ls=ls.t[toUse,3]/100,hs=hs.t[toUse,3]/100,)
+a.t<-data.frame(pos=ls.t[toUse,2],ls=ls.t[toUse,3]/100,hs=hs.t[toUse,3]/100)
 
 #use smoothing with zero memmory to get estimates at marker positions
 intersect.pos<-intersect(a.t[,1],data[,1])
@@ -67,9 +67,136 @@ if(qtl_file==""){
 qtls<-qtls[qtls[,3]==chr,]
 
 
-freq_sub<-function(x,theta,lambda,effect){
- effect*exp(-4/3*abs(x-theta)/lambda)
+freq_sub<-function(x,lambda,effect){
+ effect*exp(-4/3*x/lambda)
 }
+
+singleQtl<-function(p){
+ pos<-a.t[,1]-p[1]
+ c(freq_sub(-pos[pos<0],p[4],p[2]),freq_sub(pos[pos>=0],p[5],p[2]))
+}
+
+freq<-function(x,chrsize=0){
+ if(length(x)==1){
+  #no QTL linear function between end points
+  rep(x[1],length(a.t[,1]))
+ }else{
+  #edge parameters
+  start<-min(a.t[,1])
+  end<-max(a.t[,1])
+  #estimate without chrsizes
+  chrsize<-end 
+  b<-x[1]
+  nr<-x[2]
+  #calculate parameters
+  qtlest<-matrix(x[-c(1:2)],byrow=TRUE,ncol=2)
+  #distribute recombinations between qtls
+  qtlest<-cbind(qtlest,abs(qtlest[,2])/sum(abs(qtlest[,2]))*nr)
+  #currently recombinations are distributed evenly, proportional to the size on each side
+  #add left side
+  qtlest<-cbind(qtlest,(qtlest[,1]/chrsize)*qtlest[,3])
+  #add right side
+  qtlest<-cbind(qtlest,qtlest[,3]-qtlest[,4])
+  #transform to rates
+  qtlest[,4]<-qtlest[,1]/qtlest[,4]
+  qtlest[,5]<-(chrsize-qtlest[,2])/qtlest[,5]
+  rowSums(apply(qtlest,1,singleQtl))
+ }
+}
+
+separateParameters<-function(x){
+ base<-matrix(x[1:4],nrow=2)
+ qtlest<-matrix(x[-(1:4)],nrow=3)
+ x1<-c(base[1,],qtlest[1:2,])
+ x2<-c(base[2,],qtlest[c(1,3),])
+ data.frame(x1=x1,x2=x2)
+}
+
+parameterConstraints<-function(df,chrsize=0){
+ chrsize<-max(a.t[,1])+1
+ if(length(df)==1){
+  1
+ }else if(any(abs(df[1,]-0.5)>0.5)){
+  #baseline out of bounds
+  NA
+ }else if(any(df[2,]<=0)){
+  #No recombinations
+  NA
+ }else if(any(c(df[seq(3,nrow(df),2),]<0,df[seq(3,nrow(df),2),]>chrsize))){
+  #theta out of bounds
+  NA
+ }else if(any(abs(df[seq(4,nrow(df),2),])>1)){
+  #too large effects
+  NA
+ }else if(any(abs(df[seq(4,nrow(df),2),1]+df[1,1]-0.5)>0.5)){
+  #first estimate out of bounds
+  NA
+ }else if(any(abs(df[seq(4,nrow(df),2),2]+df[1,2]-0.5)>0.5)){
+  #second estimate out of bounds
+  NA
+ }else{
+  1
+ }
+}
+
+estLambda<-function(x,col=2){
+ f.est<-freq(x)
+ sum((a.t[,col]-f.est)**2)
+}
+
+freqBoth<-function(x){
+ if(length(x)==1){
+   estLambda(x,2)+estLambda(x,3)
+ }else{
+  par<-separateParameters(x)
+  pc<-parameterConstraints(par)
+  if(is.na(pc)){
+   pc
+  }else{
+   estLambda(par$x1,2)+estLambda(par$x2,3)
+  }
+ }
+}
+
+estPlot<-function(x){
+ plot(a.t[,c(1,3)],type="l",ylim=c(0,1))
+ lines(a.t[,1:2])
+ apply(matrix(unique(qtls[,2]),ncol=1),1,function(x) abline(v=x))
+ par<-separateParameters(x)
+ lines(a.t[,1],freq(par$x1),col="red")
+ lines(a.t[,1],freq(par$x2),col="red")
+ apply(matrix(unique(x[seq(5,length(x),3)]),ncol=1),1,function(x) abline(v=x,col="red"))
+}
+
+
+system.time({
+opt<-optim(freqBoth, par=par.start, method="Nelder-Mead", control=list(parscale=par.start, maxit=500))
+print(opt$val)
+val<-Inf
+while (opt$val<val-1e-4 && opt$convergence==1) {
+ val<-opt$val
+ opt<-optim(freqBoth, par=opt$par, method="Nelder-Mead", control=list(parscale=opt$par, maxit=500))
+ print(opt$val)
+}
+})
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 F=function(x,e1=0.5,e2=-0.5){
  F=matrix(0,nrow=3)
@@ -197,14 +324,6 @@ estLambda<-function(x,col=2){
  sum((a.t[,col]-f.est)**2)
 }
 
-separateParameters<-function(x){
- m<-matrix(x,nrow=3)
- base<-m[,1:2]
- qtlest<-matrix(m[,-(1:2)],nrow=3)
- x1<-c(base[,1],qtlest[1:2,])
- x2<-c(base[,2],qtlest[c(1,3),])
- data.frame(x1=x1,x2=x2)
-}
 
 freqBoth<-function(x){
  pc<-parameterConstraints(x)
