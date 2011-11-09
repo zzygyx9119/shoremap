@@ -1,3 +1,5 @@
+#v09 - changes in ploting
+
 source("~/shoreMap/NEW/SHOREmap_qtlseq_lib.R")
 
 #Run.....
@@ -27,8 +29,8 @@ winSize<-1000000
 winStep<-10000
 p.valueCutoff<-0.2
 minMarkersInWindow<-10
-minCoverage <- 4
-maxCoverage <- 300
+minCoverage <- 0
+maxCoverage <- 3000000
 minFrequencyChange<-0.05
 minAbsolutePeak<-0.05
 bootstrap=1000
@@ -127,27 +129,27 @@ minFrequencyChange<-max(cutOffs[round(nrow(cutOffs)*0.99),2],minFrequencyChange)
 
 
 estimates<- matrix(ncol=5)[FALSE,]
-colnames(estimates)<-c("#chr","start","stop","freqDiff","Est")
+colnames(estimates)<-c("chr","start","stop","freqDiff","Est")
 
 nrOfChrs<-length(unique(data[,1]))
 
 pdf(paste(outprefix,".plots.pdf",sep=""))
 par(mfrow=c(ceiling(nrOfChrs/2),2))
 
-
+colors<-rainbow(50,start=4/6,end=1/6)
 
 for(chr in unique(data[,1])){
  data2<-data[data[,1]==chr,]
 # png()
- plot(data2[,2],data2[,11],main=paste("chr",chr),xlab="pos",ylab="frequncy difference",ylim=c(-1,1))
+ plot(data2[,2],data2[,11],main=paste("chr",chr),xlab="pos",ylab="frequency difference",ylim=c(-1.2,1),pch=16,cex=0.75,col="lightsteelblue3")
 
 
  sorted<-windowedScore(data2,winSize,winStep,minMarkersInWindow,p.valueCutoff)
  sorted<-sorted[sorted[,1]>min(data2[,2])+winSize/2 & sorted[,1]<max(data2[,2])-winSize/2,]
  #for each shift value, calculate the p score for each window
- lines(sorted[,c(1,4)],col="red")
+ lines(sorted[,c(1,4)],col="limegreen")
  
- peaks<-predictPeaks(sorted,minFrequencyChange,minAbsolutePeak,cutOffs,winSize,TRUE,0.2)
+ peaks<-predictPeaks(sorted,minFrequencyChange,minAbsolutePeak,cutOffs,winSize,FALSE,0.2)
  if(nrow(peaks)>0){
   for(peakIndex in 1:nrow(peaks)){
    #extract region
@@ -180,7 +182,7 @@ for(chr in unique(data[,1])){
     }),recursive=TRUE)
     wins<-t(sapply(sort(mp,index.return=TRUE)$ix,function(i) c(mp[i],md[i],ms[i])))
     wins<-wins[wins[,1]>lowerBoundary+winSize/2 & wins[,1]<upperBoundary-winSize/2 & wins[,3]>minMarkersInWindow,1:2]
-    lines(wins[,1],wins[,2],col="violetred")
+    #lines(wins[,1],wins[,2],col="violetred")
 
  
     #adjust frequency
@@ -204,15 +206,36 @@ for(chr in unique(data[,1])){
     rect(data3[opt$par[1],2],0.96,data3[opt$par[2],2],1,col="limegreen",border="limegreen")
 
     est<-round(optim(par=roughEst,fn=optimFn,gr=optimGr,winSize=winSize,low=data3[opt$par[1],2],high=data3[opt$par[2],2],direction=direction)$par[1])
-    abline(v=est,col="steelblue")
+    abline(v=est,col="limegreen")
 
     estimates<-rbind(estimates,c(chr,data3[opt$par[1],2],data3[opt$par[2],2],minDiff,est))
    }
   }
  }
- for(pos in qtls[qtls$chr==chr,2]){
-  abline(v=pos,col="red")
+ if(sum(qtls$chr==chr)>0){
+  apply(qtls[qtls$chr==chr,],1,function(x) {
+   e<-min(50,x[4])
+   e<-max(-50,e)
+   e<-round((e+50)/2)
+   abline(v=x[2],col=colors[e])
+  })
  }
+ #print scale
+ chrStart<-min(data2[,2])
+ chrEnd<-max(data2[,2])
+ chrSize<-chrEnd-chrStart
+ scaleStart<-chrStart+chrSize/5
+ scaleEnd<-chrEnd-chrSize/5
+ scaleSize<-scaleEnd-scaleStart
+ dx<-scaleSize/50
+ starts<-seq(scaleStart,scaleEnd-1,dx)  
+  
+ rect(starts, -1, starts+0.9*dx, -1.1, col = colors, border = "grey");
+ text(scaleStart+scaleSize/2,-0.95,"effects")
+ text(scaleStart+scaleSize/2,-1.15,"0")
+ text(starts[1],-1.15,"-50")
+ text(max(starts)+0.9*dx,-1.15,"50")
+
 }
 
 dev.off()
@@ -224,7 +247,7 @@ header[1]<-paste("#",header[1],sep="")
 qhc<-ncol(qtls)-1
 ehc<-ncol(estimates)-1
 
-toPrint<-do.call(rbind,sapply(unique(data[,1]),function(chr){
+toPrint<-sapply(unique(data[,1]),function(chr){
  cq<-sum(qtls$chr==chr)
  ce<-sum(estimates[,1]==chr)
  q<-matrix(c(qtls[qtls$chr==chr,c(1:2,4:7)],recursive=TRUE),ncol=qhc)
@@ -266,7 +289,14 @@ toPrint<-do.call(rbind,sapply(unique(data[,1]),function(chr){
   #True Negative
   matrix(c(chr,rep(NA,qhc+ehc),"TN","" ),ncol=length(header))
  }
-}))
+})
+
+if(is.list(toPrint)){
+ toPrint<-do.call(rbind,toPrint)
+}else{
+ toPrint<-matrix(toPrint,ncol=length(header),byrow=TRUE)
+}
+
 colnames(toPrint)<-header
 
 write.table(toPrint,file=paste(outprefix,".qtlEstimates.csv",sep=""),row.names=F,sep="\t",quote=F,na="")
