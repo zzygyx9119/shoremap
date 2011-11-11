@@ -1,4 +1,5 @@
 #v09 - changes in ploting
+#v10 - added the true interval of the qtl
 
 source("~/shoreMap/NEW/SHOREmap_qtlseq_lib.R")
 
@@ -56,18 +57,41 @@ goodCov<-(hs.cov>minCoverage & hs.cov<maxCoverage)&(ls.cov>minCoverage &ls.cov<m
 
 hs<-hs[goodCov,]
 ls<-ls[goodCov,]
+
+
+
 qtls<-data.frame(pos=-1,chr=-1)
 if(qtl_file==""){
  qtls<-data.frame(pos=-1,chr=-1)
 }else{
- qtls<-read.table(qtl_file)
+ qtls<-read.table(paste(qtl_file,".qtl.txt",sep=""))
+ ls.t<-read.table(paste(qtl_file,".low.AF.txt",sep=""))
+ hs.t<-read.table(paste(qtl_file,".high.AF.txt",sep=""))
+ a.t<-cbind(ls.t[,1],ls.t[,2],(hs.t[,3]-ls.t[,3])/100)
+ marker<-qtls[,2]+1
+ freqDiff<-a.t[marker,3]
+ trueStart<-sapply(1:length(freqDiff),function(i){
+  start<-marker[i]
+  while(a.t[start,3]==freqDiff[i]&&start>1){
+   start<-start-1
+  }
+  a.t[start,2]+1
+ })
+ trueEnd<-sapply(1:length(freqDiff),function(i){
+  end<-marker[i]
+  while(a.t[end,3]==freqDiff[i]&& end<nrow(a.t)){
+   end<-end+1
+  }
+  a.t[end,2]-1
+ })
  rank<-sort(sort(abs(qtls[,5]),index.return=TRUE,decreasing=TRUE)$ix,index.return=TRUE)$ix
  lg<-sapply(qtls[,3],function(x) ifelse(sum(qtls[,3]==x)>1,x,0))
  lgType<-sapply(lg,function(x) ifelse(x==0,0,{
   tt<-table(sign(qtls[lg==x,5]))
   ifelse(length(tt)==1,sign(sum(qtls[lg==x,5])),ifelse(tt[1]<tt[2],-tt[1]/tt[2],ifelse(tt[1]==tt[2],0,tt[2]/tt[1])))
  }))
- qtls<-data.frame(id=qtls[,1],pos=qtls[,4],chr=qtls[,3],effect=qtls[,5],rank=rank,lg=lg,lgType=lgType)
+ qtls<-data.frame(id=qtls[,1],pos=qtls[,4],chr=qtls[,3],effect=qtls[,5],rank=rank,lg=lg,lgType=lgType,trueFreqDiff=freqDiff,trueStart=trueStart,trueEnd=trueEnd)
+ 
 }
 
 
@@ -242,7 +266,7 @@ dev.off()
 
 
 #print estimates
-header<-c("chr",colnames(qtls)[c(1:2,4:7)],colnames(estimates)[c(2:5)],"judgement","spec")
+header<-c("chr",colnames(qtls)[c(1:2,4:ncol(qtls))],colnames(estimates)[c(2:ncol(estimates))],"judgement","spec")
 header[1]<-paste("#",header[1],sep="")
 qhc<-ncol(qtls)-1
 ehc<-ncol(estimates)-1
@@ -250,8 +274,8 @@ ehc<-ncol(estimates)-1
 toPrint<-sapply(unique(data[,1]),function(chr){
  cq<-sum(qtls$chr==chr)
  ce<-sum(estimates[,1]==chr)
- q<-matrix(c(qtls[qtls$chr==chr,c(1:2,4:7)],recursive=TRUE),ncol=qhc)
- e<-matrix(estimates[estimates[,1]==chr,c(2:5)],ncol=ehc)
+ q<-matrix(c(qtls[qtls$chr==chr,c(1:2,4:ncol(qtls))],recursive=TRUE),ncol=qhc)
+ e<-matrix(estimates[estimates[,1]==chr,c(2:ncol(estimates))],ncol=ehc)
  if(cq>0 && ce>0){
   #get True Positive
   pairs<-combn(cq+ce,2)
