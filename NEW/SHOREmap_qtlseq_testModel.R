@@ -1,5 +1,6 @@
 #Metod 3... go back to method 1 and add more constraints
-library(bbmle)
+#wrapper v01
+source("~/shoreMap/NEW/SHOREmap_qtlseq_testModel_lib.R")
 
 args<-commandArgs(trailingOnly=TRUE)
 
@@ -7,393 +8,206 @@ high_file<-args[1]
 low_file<-args[2]
 qtl_file<-args[3]
 outprefix<-args[4]
-ls.t<-read.table(paste(outprefix,".low.AF.txt",sep=""))
-hs.t<-read.table(paste(outprefix,".high.AF.txt",sep=""))
+#ls.t<-read.table(paste(outprefix,".low.AF.txt",sep=""))
+#hs.t<-read.table(paste(outprefix,".high.AF.txt",sep=""))
 #Parameters
 minCoverage <- 4
 maxCoverage <- 300
-chr<-3
+winSize <- 2e6
+tolerance <- 2e6
+
 
 #prep data
-hs<-read.table(high_file)
-ls<-read.table(low_file)
+hs_all<-read.table(high_file)
+ls_all<-read.table(low_file)
 
 #extract instersection of markers
-chrmod<-10**ceiling(log10(max(hs[,2],ls[,2])))
-hs.mod<-hs[,1]*chrmod+hs[,2]
-ls.mod<-ls[,1]*chrmod+ls[,2]
+chrmod<-10**ceiling(log10(max(hs_all[,2],ls_all[,2])))
+hs.mod<-hs_all[,1]*chrmod+hs_all[,2]
+ls.mod<-ls_all[,1]*chrmod+ls_all[,2]
 
 intersect.mod<-intersect(hs.mod,ls.mod)
-hs<-hs[hs.mod %in% intersect.mod,]
-ls<-ls[ls.mod %in% intersect.mod,]
+hs_all<-hs_all[hs.mod %in% intersect.mod,]
+ls_all<-ls_all[ls.mod %in% intersect.mod,]
 
 
-hs.cov<-rowSums(hs[,3:5])
-ls.cov<-rowSums(ls[,3:5])
+hs.cov<-rowSums(hs_all[,3:5])
+ls.cov<-rowSums(ls_all[,3:5])
 
 goodCov<-(hs.cov>minCoverage & hs.cov<maxCoverage)&(ls.cov>minCoverage &ls.cov<maxCoverage)
 
-hs<-hs[goodCov,]
-ls<-ls[goodCov,]
-
-toUse<-hs[,1]==chr
-data<-cbind(ls[toUse,2:4],hs[toUse,3:4])
-
-
-
-toUse<-ls.t[,1]==chr
-
-#a.t should contain windowed estimates
-a.t<-data.frame(pos=ls.t[toUse,2],ls=ls.t[toUse,3]/100,hs=hs.t[toUse,3]/100)
-
-#use smoothing with zero memmory to get estimates at marker positions
-intersect.pos<-intersect(a.t[,1],data[,1])
-a.t<-a.t[a.t[,1] %in% intersect.pos,]
-data<-data[data[,1] %in% intersect.pos,]
+hs_all<-hs_all[goodCov,]
+ls_all<-ls_all[goodCov,]
 
 #read qtl file
+qtls_all<-data.frame(pos=-1,chr=-1)
 if(qtl_file==""){
- qtls<-data.frame(pos=-1,chr=-1)
+ qtls_all<-data.frame(pos=-1,chr=-1)
 }else{
- qtls<-read.table(qtl_file)
- rank<-sort(sort(abs(qtls[,5]),index.return=TRUE,decreasing=TRUE)$ix,index.return=TRUE)$ix
- lg<-sapply(qtls[,3],function(x) ifelse(sum(qtls[,3]==x)>1,x,0))
+ qtls_all<-read.table(paste(qtl_file,".qtl.txt",sep=""))
+ ls.t<-read.table(paste(qtl_file,".low.AF.txt",sep=""))
+ hs.t<-read.table(paste(qtl_file,".high.AF.txt",sep=""))
+ a.t<-cbind(ls.t[,1],ls.t[,2],(hs.t[,3]-ls.t[,3])/100)
+ marker<-qtls_all[,2]+1
+ freqDiff<-a.t[marker,3]
+ trueStart<-sapply(1:length(freqDiff),function(i){
+  start<-marker[i]
+  while(a.t[start,3]==freqDiff[i]&&start>1){
+   start<-start-1
+  }
+  a.t[start,2]+1
+ })
+ trueEnd<-sapply(1:length(freqDiff),function(i){
+  end<-marker[i]
+  while(a.t[end,3]==freqDiff[i]&& end<nrow(a.t)){
+   end<-end+1
+  }
+  a.t[end,2]-1
+ })
+ rank<-sort(sort(abs(qtls_all[,5]),index.return=TRUE,decreasing=TRUE)$ix,index.return=TRUE)$ix
+ lg<-sapply(qtls_all[,3],function(x) ifelse(sum(qtls_all[,3]==x)>1,x,0))
  lgType<-sapply(lg,function(x) ifelse(x==0,0,{
-  tt<-table(sign(qtls[lg==x,5]))
-  ifelse(length(tt)==1,sign(sum(qtls[lg==x,5])),ifelse(tt[1]<tt[2],-tt[1]/tt[2],ifelse(tt[1]==tt[2],0,tt[2]/tt[1])))
+  tt<-table(sign(qtls_all[lg==x,5]))
+  ifelse(length(tt)==1,sign(sum(qtls_all[lg==x,5])),ifelse(tt[1]<tt[2],-tt[1]/tt[2],ifelse(tt[1]==tt[2],0,tt[2]/tt[1])))
  }))
- qtls<-data.frame(id=qtls[,1],pos=qtls[,4],chr=qtls[,3],effect=qtls[,5],rank=rank,lg=lg,lgType=lgType)
-}
-qtls<-qtls[qtls[,3]==chr,]
-
-
-
-singleQtl<-function(q){
-# x<-a.t[,1]-q[1]
- q[2]*exp(-4/3*(a.t[,1]-q[1])/ifelse(a.t[,1]<q[1],-q[3],q[4]))
+ qtls_all<-data.frame(id=qtls_all[,1],pos=qtls_all[,4],chr=qtls_all[,3],effect=qtls_all[,5],rank=rank,lg=lg,lgType=lgType,trueFreqDiff=freqDiff,trueStart=trueStart,trueEnd=trueEnd)
+ 
 }
 
-freq<-function(x){
- if(length(x)==1){
-  #no qtl
-  rep(x[1],length(a.t[,1]))
- }else{
-  baseline<-x[1]
-  qtlest<-matrix(x[-1],byrow=TRUE,ncol=4)
-  baseline+rowSums(apply(qtlest,1,singleQtl))
- }
-}
+verbose<-FALSE
 
-separateParameters<-function(x){
- base<-matrix(x[1:2],nrow=1)
- qtlp<-matrix(x[-(1:2)],nrow=7)
- x1<-c(base[1],qtlp[c(1,2:4),])
- x2<-c(base[2],qtlp[c(1,5:7),])
- data.frame(x1=x1,x2=x2)
-}
+estimates<- matrix(ncol=5)[FALSE,]
+colnames(estimates)<-c("chr","start","stop","freqDiff","Est")
 
-estPlot<-function(x){
- plot(a.t[,c(1,3)],type="l",ylim=c(0,1))
- lines(a.t[,1:2])
- apply(matrix(unique(qtls[,2]),ncol=1),1,function(x) abline(v=x))
- par<-separateParameters(x)
- lines(a.t[,1],freq(par$x1),col="red")
- lines(a.t[,1],freq(par$x2),col="red")
- if(nrow(par)>1){
-  apply(matrix(unique(x[seq(3,length(x),7)]),ncol=1),1,function(x) abline(v=x,col="red"))
- }
-}
+nrOfChrs<-length(unique(hs_all[,1]))
 
-checkRecombinationCount<-function(x,chrsize,verbose=FALSE){
- qtlest<-matrix(x[-1],ncol=4,byrow=TRUE)
- totRec<-sum(qtlest[,1]/qtlest[,3]+(chrsize-qtlest[1])/qtlest[,4])
- if(totRec>100){
-  TRUE
- }else{
-  FALSE
- }
-}
+pdf(paste(outprefix,".plots.pdf",sep=""))
+par(mfrow=c(ceiling(nrOfChrs/2),2))
 
-checkRecombinationRates<-function(x,chrsize,verbose=FALSE){
- qtlest<-matrix(x[-1],ncol=4,byrow=TRUE)
- epsilon<-1e-10 #error tolerance...
- if(nrow(qtlest)>1){
-  qtlest<-qtlest[sort(qtlest[,1],index.return=TRUE)$ix,]
-  #find transitions between negative and positive qtl loci
-  transitions<-diff(sign(qtlest[,2]))
-  pm<-which(transitions!=0)
-  chk<--1
-  #demand that the number of recombinations towards the differently directed qtl are at least as many as on the other side
-  if(length(pm)>0){
-   for(i in pm){
-    if(qtlest[i,1]/qtlest[i,3]>(chrsize-qtlest[i,1])/qtlest[i,4]+epsilon){
-     if(verbose) print(paste("qtl at position:",qtlest[i,1],"has problems with the recombination rates"))
-     chk<-qtlest[i,1]
-     break
-    }
-   }
-   if(chk<0){
-    for(i in pm+1){
-     if(qtlest[i,1]/qtlest[i,3]+epsilon<(chrsize-qtlest[i,1])/qtlest[i,4]){
-      if(verbose) print(paste("qtl at position:",qtlest[i,1],"has problems with the recombination rates"))
-      chk<-qtlest[i,1]
-      break
-     }
-    }
+
+for (chr in unique(hs_all[,1])){
+ if(verbose) print(paste("Chr:",chr))
+ toUse<-hs_all[,1]==chr
+ data<-cbind(ls_all[toUse,2:4],hs_all[toUse,3:4])
+ a.t<-t(sapply(data[,1],function(x) {index<-which(data[,1]>=x-winSize/2 & data[,1]<x+winSize/2);c(x,sum(data[index,2])/sum(data[index,2:3]),sum(data[index,4])/sum(data[index,4:5]))}))
+
+# using true values
+# toUse<-ls.t[,1]==chr
+# a.t<-data.frame(pos=ls.t[toUse,2],ls=ls.t[toUse,3]/100,hs=hs.t[toUse,3]/100)
+ #use smoothing with zero memmory to get estimates at marker positions
+# intersect.pos<-intersect(a.t[,1],data[,1])
+# a.t<-a.t[a.t[,1] %in% intersect.pos,]
+# data<-data[data[,1] %in% intersect.pos,]
+
+
+ qtls<-qtls_all[qtls_all[,3]==chr,]
+  
+
+ pars<-list()
+ pars[[1]]<-findBest(c(0.5,0.5),verbose=verbose)
+ if(verbose) print(paste("No QTL:",calcbic(pars[[1]]$par)))
+ newQtl<-getNewQtl(pars[[1]]$par)
+ pars[[2]]<-findBest(c(pars[[1]]$par,newQtl),verbose=verbose)
+ if(verbose) print(paste("1 QTL:",calcbic(pars[[2]]$par)))
+ if(calcbic(pars[[2]]$par)<calcbic(pars[[1]]$par)){
+  #add QTLs as long as BIC improves
+  bestVal<-calcbic(pars[[2]]$par)
+  for(i in 3:10){
+   newQtl<-getNewQtl(pars[[i-1]]$par)
+   pars[[i]]<-findBest(c(pars[[i-1]]$par,newQtl),verbose=verbose)
+   if(verbose) print(paste(i-1,"QTLs:",calcbic(pars[[i]]$par)))
+   newVal<-calcbic(pars[[i]]$par)
+   if(newVal<=bestVal){
+    bestVal<-newVal
+   }else{
+    break
    }
   }
-  chk
- }else{
-  #OK
-  -1
+ }
+ bestPar<-pars[[which.min(sapply(pars,function(x) calcbic(x$par)))]]$par 
+ #do plot
+ estPlot(bestPar)
+ #output parameters to file
+ sapply(pars,function(x) write.table( matrix(c(chr,calcbic(x$par),x$par),nrow=1),file=paste(outprefix,"_modelParameters.csv",sep=""), append=TRUE, sep="\t", quote=FALSE, row.names=FALSE, col.names=FALSE))
+ #add estimates estimate list
+ if(length(bestPar)>2){
+  estimates<-rbind(estimates,t(sapply(bestPar[seq(3,length(bestPar),7)],function(x) {
+   closestMarker<-which.min(abs(a.t[,1]-x))
+   c(chr,max(x-tolerance,0),min(x+tolerance,max(a.t[,1])),abs(a.t[closestMarker,2]-a.t[closestMarker,3]),x)
+  })))
  }
 }
 
-parameterConstraints_sub<-function(df,verbose=FALSE){
- chrsize<-max(a.t[,1])+1
- if(any(abs(df[1,]-0.5)>0.5)){
-  if(verbose) print("baseline out of bounds")
-  2
- }else if(nrow(df)==1){
-  1
- }else if(any(df[seq(2,nrow(df),4),]<0)){
-  if(verbose) print("theta too small")
-  3
- }else if(any(df[seq(2,nrow(df),4),]>chrsize)){
-  if(verbose) print("theta too large")
-  4
- }else if(any(abs(df[seq(3,nrow(df),4),])>1)){
-  if(verbose) print("effect out of bounds")
-  5
- }else if(any(df[c(seq(4,nrow(df),4),seq(5,nrow(df),4)),]<=5e6)){
-  if(verbose) print("too small rates")
-  6
- }else if(any(abs(df[seq(3,nrow(df),4),1]+df[1,1]-0.5)>0.5)){
-  if(verbose) print("first estimate out of bounds")
-  7
- }else if(any(abs(df[seq(3,nrow(df),4),2]+df[1,2]-0.5)>0.5)){
-  if(verbose) print("second estimate out of bounds")
-  8
- }else if(checkRecombinationCount(df$x1,chrsize,verbose)){
-  #Failed transition between positive and negative qtls for the first case
-  if(verbose) print("first")
-  9
- }else if(checkRecombinationCount(df$x2,chrsize,verbose)){
-  #Failed transition between positive and negative qtls for the second case
-  if(verbose) print("second")
-  10
- }else if(checkRecombinationRates(df$x1,chrsize,verbose)>0){
-  #Failed transition between positive and negative qtls for the first case
-  if(verbose) print("first")
-  11
- }else if(checkRecombinationRates(df$x2,chrsize,verbose)>0){
-  #Failed transition between positive and negative qtls for the second case
-  if(verbose) print("second")
-  12
- }else{
-  1
- }
-}
+dev.off()
 
-parameterConstraints<-function(df,verbose=FALSE){
- if(parameterConstraints_sub(df,verbose)==1){
-  1
- }else{
-  NA
- }
-}
 
-getNewQtl<-function(x,direction=c(-1,1)){
- chrsize<-max(a.t[,1])+1
- posToUse<-if(length(x)==2){
-  round(chrsize/2)
- }else{
-  df<-separateParameters(x)
-  #find section with most deviation per marker
-  pos<-matrix(sort(df[seq(2,nrow(df),4),1]),ncol=1)
-  windows<-rowSums(apply(pos,1,function(p) ifelse(a.t[,1]<p,0,1)))
-  distance<-(a.t[,2]-freq(df$x1))**2+(a.t[,3]-freq(df$x2))**2
-  round((diff(c(0,pos,chrsize))/2+c(0,pos))[which.max(tapply(distance,windows,mean))])
- }
- #set direction of effects
- effect<-sign(direction)*0.05
- c(posToUse,effect[1],1e7,1e7,effect[2],1e7,1e7)
-}
+#print estimates
+qtls<-qtls_all
+header<-c("chr",colnames(qtls)[c(1:2,4:ncol(qtls))],colnames(estimates)[c(2:ncol(estimates))],"judgement","spec")
+header[1]<-paste("#",header[1],sep="")
+qhc<-ncol(qtls)-1
+ehc<-ncol(estimates)-1
 
-addQtl_sub<-function(x,direction=c(-1,1)){
- chrsize<-max(a.t[,1])+1
- newQtl<-getNewQtl(x,chrsize,direction)
- par<-c(x[1:2],posToUse,effect[1],1e7,1e7,effect[2],1e7,1e7,x[-(1:2)])
- df<-separateParameters(par)
- pc<-parameterConstraints_sub(df)
- if(pc!=1){
-  #bad parameters... try to fix
-  if(pc==11 ||pc==12){
-   chk<-checkRecombinationRates(df$x1,chrsize)
-   while(chk>0){
-    i<-which(par==chk)
-    par[i+3]<-par[i+2]*(chrsize-par[i])/par[i]
-    df<-separateParameters(par)
-    chk<-checkRecombinationRates(df$x1,chrsize)
+toPrint<-sapply(unique(hs_all[,1]),function(chr){
+ cq<-sum(qtls$chr==chr)
+ ce<-sum(estimates[,1]==chr)
+ q<-matrix(c(qtls[qtls$chr==chr,c(1:2,4:ncol(qtls))],recursive=TRUE),ncol=qhc)
+ e<-matrix(estimates[estimates[,1]==chr,c(2:ncol(estimates))],ncol=ehc)
+ if(cq>0 && ce>0){
+  #get True Positive
+  pairs<-combn(cq+ce,2)
+  pairs<-matrix(pairs[,pairs[1,]<=cq & pairs[2,]>cq],nrow=2)
+  pairs[2,]<-pairs[2,]-cq
+  tp<-apply(pairs,2,function(x){
+   q[x[1],2]>=e[x[2],1] && q[x[1],2]<=e[x[2],2]
+  })
+  toPrint<-matrix(apply(matrix(pairs[,tp],nrow=2),2,function(x) c(chr,q[x[1],],e[x[2],],"TP","")),byrow=TRUE,ncol=length(header))
+  #check if any of the qtls are close to a interval
+  close<-apply(pairs,2,function(x){
+   q[x[1],2]+tolerance>=e[x[2],1] && q[x[1],2]-tolerance<=e[x[2],2]
+  })
+  toPrint<-rbind(toPrint,matrix(apply(matrix(pairs[,close &!tp],nrow=2),2,function(x) c(chr,q[x[1],],e[x[2],],"FP","close")),byrow=T,ncol=length(header)))
+  #more FP?
+  for(i in 1:ce){
+   if(!i %in% unique(pairs[2,close]) ){
+    toPrint<-rbind(toPrint,matrix(c(chr,rep(NA,qhc),e[i,],"FP","" ),ncol=length(header)))
    }
-   chk<-checkRecombinationRates(df$x2,chrsize)
-   while(chk>0){
-    i<-which(par==chk)
-    par[i+6]=par[i+5]*(chrsize-par[i])/par[i]
-    df<-separateParameters(par)
-    chk<-checkRecombinationRates(df$x2,chrsize)
+  }
+  #FN
+  for(i in 1:cq){
+   if(!i %in% unique(pairs[1,close]) ){
+    toPrint<-rbind(toPrint,matrix(c(chr,q[i,],rep(NA,ehc),"FN","" ),ncol=length(header)))
    }
-   par
-  }else{
-   #fail 
-   print("failed to auto-add a qtl")
-   par
   }
+  toPrint
+ }else if(cq>0){
+  #False Negative
+  matrix(apply(q,1,function(x) matrix(c(chr,x,rep(NA,ehc),"FN","" ),ncol=length(header))),ncol=length(header),byrow=TRUE)
+ }else if(ce>0){
+  #False Positive
+  matrix(apply(e,1,function(x) matrix(c(chr,rep(NA,qhc),x,"FP","" ),ncol=length(header))),ncol=length(header),byrow=TRUE)
  }else{
-  par
+  #True Negative
+  matrix(c(chr,rep(NA,qhc+ehc),"TN","" ),ncol=length(header))
  }
+})
+
+if(is.list(toPrint)){
+ toPrint<-do.call(rbind,toPrint)
+}else{
+ toPrint<-matrix(toPrint,ncol=length(header),byrow=TRUE)
 }
 
-addQtl<-function(previous){
- par.start<-getNewQtl(previous)
- if(is.na(parameterConstraints(separateParameters(c(previous,par.start))))){
-  par.start<-getNewQtl(previous,c(1,-1))
- }
- estPlot(c(previous,par.start))
- opt<-optim(freqBoth_addOne, par=par.start, static=previous, method="Nelder-Mead", control=list(parscale=par.start, maxit=5000))
- estPlot(c(previous,opt$par))
- print(opt$val)
- val<-Inf
- while (opt$val<val-1e-3 && opt$convergence==1) {
-  val<-opt$val
-  opt<-optim(freqBoth, par=opt$par, static=previous, method="Nelder-Mead", control=list(parscale=opt$par, maxit=5000))
-  estPlot(c(previous,opt$par))
-  print(opt$val)
- }
- opt
-}
+colnames(toPrint)<-header
 
-estLambda<-function(x,col=2){
- sum((a.t[,col]-freq(x))**2)
-}
+write.table(toPrint,file=paste(outprefix,".qtlEstimates.csv",sep=""),row.names=F,sep="\t",quote=F,na="")
 
-freqBoth<-function(x){
- if(length(x)==2){
-   estLambda(x[1],2)+estLambda(x[2],3)
- }else{
-  par<-separateParameters(x)
-  if(is.na(parameterConstraints(par))){
-   NA
-  }else{
-   estLambda(par$x1,2)+estLambda(par$x2,3)
-  }
- }
-}
+#if(length(estimates[1,])>0){
+# colnames(estimates)<-c("chr","start","stop","freqDiff","roughEst")
+# write.table(estimates,file=paste(outprefix,".qtlEstimates.csv",sep=""),row.names=F,sep="\t",quote=F)
+#}
 
-freqBoth_addOne<-function(x,static=c(0.5,0.5)){
- freqBoth(c(static,x))
-}
-
-llBoth<-function(x){
- df<-separateParameters(x) #0.001
- if(is.na(parameterConstraints(df))){
-  NA
- }else{
-#  f1<-freq(df$x1) #0.008
-#  f2<-freq(df$x2) #0.007
-#  d1<-cbind(data[,2],rowSums(data[,2:3]),f1) #0.007
-#  d2<-cbind(data[,4],rowSums(data[,4:5]),f2) #0.007
-#  -sum(apply(d1,1,function(r) dbinom(r[1],size=r[2],prob=r[3],log=TRUE)))-sum(apply(d2,1,function(r) dbinom(r[1],size=r[2],prob=r[3],log=TRUE))) #0.556
-  -sum(apply(cbind(data[,2],rowSums(data[,2:3]),freq(df$x1)),1,function(r) dbinom(r[1],size=r[2],prob=r[3],log=TRUE)))-sum(apply(cbind(data[,4],rowSums(data[,4:5]),freq(df$x2)),1,function(r) dbinom(r[1],size=r[2],prob=r[3],log=TRUE)))
- }
-}
-
-calcFocusScale<-function(x){
- if(length(x)>2){
-  x*c(1,1,rep(0.5,7),rep(1,length(x)-9))
- }else{
-  x
- }
-}
-
-calcbic<-function(x){
- 2*llBoth(x)+length(x)*log(nrow(data))
-}
-
-findBest<-function(par.start,focus=TRUE){
- system.time({
- estPlot(par.start)
- scale<-par.start
- if(focus){
-  scale<-calcFocusScale(par.start)
- }
- opt<-optim(freqBoth, par=par.start, method="Nelder-Mead", control=list(parscale=scale, maxit=5000))
- estPlot(opt$par)
- print(opt$val)
- val<-Inf
- while (opt$val<val-1e-3 && opt$convergence==1) {
-  val<-opt$val
-  scale<-opt$par
-  if(focus){
-   scale<-calcFocusScale(opt$par)
-  }
-  opt<-optim(freqBoth, par=opt$par, method="Nelder-Mead", control=list(parscale=scale, maxit=5000))
-  estPlot(opt$par)
-  print(opt$val)
- }
- })
- print("Refining...")
- par.start<-opt$par
-
- system.time({
- scale<-par.start
- if(focus){
-  scale<-calcFocusScale(par.start)
- }
- opt<-optim(llBoth,par=par.start, method="Nelder-Mead", control=list(parscale=scale, maxit=5000))
- estPlot(opt$par)
- print(opt$val)
- val<-Inf
- while (opt$val<val && opt$convergence==1) {
- #while (opt$convergence==1) {
-  val<-opt$val
-  scale<-opt$par
-  if(focus){
-   scale<-calcFocusScale(opt$par)
-  }
-  opt<-optim(llBoth, par=opt$par, method="Nelder-Mead", control=list(parscale=scale, maxit=5000))
-  estPlot(opt$par)
-  print(opt$val)
- }
- })
- opt
-}
-
-
-
-pars<-list()
-pars[[1]]<-findBest(c(0.5,0.5))
-newQtl<-getNewQtl(pars[[1]]$par)
-pars[[2]]<-findBest(c(pars[[1]]$par,newQtl))
-#par.start<-c(0.5,0.5,max(a.t[,1])/2,-0.3,1e7,1e7,0.3,1e7,1e7)
-#opt<-findBest(par.start)
-#pars[[1]]<-opt
-for(i in 3:5){
- newQtl<-addQtl(pars[[i-1]]$par)
- pars[[i]]<-findBest(c(pars[[i-1]]$par,newQtl$par))
-# t2<-findBest(addQtl(pars[[i-1]]$par,c(1,-1)))
-# pars[[i]]<-if(calcbic(t1$par)>calcbic(t2$par)){
-#  t2
-# }else{
-#  t1
-# }
-}
-
-
-
-
-
-
+q("no",0,F)
 
 
 
