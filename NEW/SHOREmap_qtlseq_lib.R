@@ -1,3 +1,6 @@
+#lib v01
+#v02 - included the absolute height as cutoff for peak prediction
+
 library(bbmle)
 
 estimateFreq_one<-function(interval,memory=1){
@@ -227,7 +230,7 @@ predictPeaks_p<-function(x,cutOffs){
 predictPeaks<-function(sorted,minFrequencyChange,minAbsolutePeak,cutOffs,winSize,doPlot,span){
  peaks<-predictAllPeaks(sorted,winSize,doPlot,span)
  
- mPeak<-peaks[,3]>minFrequencyChange | peaks[,4]>minFrequencyChange
+ mPeak<- (peaks[,3]>minFrequencyChange | peaks[,4]>minFrequencyChange) & abs(peaks[,2])>minAbsolutePeak
  
  if(sum(mPeak)>0){
   p<-sapply(which(mPeak),function(i) predictPeaks_p(peaks[i,],cutOffs))
