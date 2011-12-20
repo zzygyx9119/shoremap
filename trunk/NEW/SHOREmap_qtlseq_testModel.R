@@ -1,6 +1,6 @@
 #Metod 3... go back to method 1 and add more constraints
 #wrapper v01
-source("~/shoreMap/NEW/SHOREmap_qtlseq_testModel_lib.R")
+source("/projects/dep_coupland/grp_nordstrom/projects/Lotus/Simulation/PopSimulatorRIL/Rcode/SHOREmap_qtlseq_testModel_lib.R")
 
 args<-commandArgs(trailingOnly=TRUE)
 
@@ -86,11 +86,16 @@ par(mfrow=c(ceiling(nrOfChrs/2),2))
 
 
 for (chr in unique(hs_all[,1])){
- if(verbose) print(paste("Chr:",chr))
+ print(paste("Chr:",chr))
+ if(verbose) {
+  X11()
+ }
  toUse<-hs_all[,1]==chr
  data<-cbind(ls_all[toUse,2:4],hs_all[toUse,3:4])
+ #smoothing... not needed???
  a.t<-t(sapply(data[,1],function(x) {index<-which(data[,1]>=x-winSize/2 & data[,1]<x+winSize/2);c(x,sum(data[index,2])/sum(data[index,2:3]),sum(data[index,4])/sum(data[index,4:5]))}))
-
+ #begin with frequencies... later implement probit??
+ #a.t.raw<-cbind(x=data[,1],y1=data[,2]/rowSums(data[,2:3]),y2=data[,4]/rowSums(data[,4:5]))
 # using true values
 # toUse<-ls.t[,1]==chr
 # a.t<-data.frame(pos=ls.t[toUse,2],ls=ls.t[toUse,3]/100,hs=hs.t[toUse,3]/100)
@@ -106,15 +111,27 @@ for (chr in unique(hs_all[,1])){
  pars<-list()
  pars[[1]]<-findBest(c(0.5,0.5),verbose=verbose)
  if(verbose) print(paste("No QTL:",calcbic(pars[[1]]$par)))
- newQtl<-getNewQtl(pars[[1]]$par)
- pars[[2]]<-findBest(c(pars[[1]]$par,newQtl),verbose=verbose)
+ plus<-findBest(c(pars[[1]]$par,getNewQtl(pars[[1]]$par,c(-1,1))),verbose=verbose)
+ minus<-findBest(c(pars[[1]]$par,getNewQtl(pars[[1]]$par,c(1,-1))),verbose=verbose)
+ if(calcbic(plus$par)<calcbic(minus$par)){
+  pars[[2]]<-plus
+ }else{
+  pars[[2]]<-minus
+ }
  if(verbose) print(paste("1 QTL:",calcbic(pars[[2]]$par)))
  if(calcbic(pars[[2]]$par)<calcbic(pars[[1]]$par)){
   #add QTLs as long as BIC improves
   bestVal<-calcbic(pars[[2]]$par)
   for(i in 3:10){
-   newQtl<-getNewQtl(pars[[i-1]]$par)
-   pars[[i]]<-findBest(c(pars[[i-1]]$par,newQtl),verbose=verbose)
+   plus<-findBest(c(pars[[i-1]]$par,getNewQtl(pars[[i-1]]$par,c(-1,1))),verbose=verbose)
+   minus<-findBest(c(pars[[i-1]]$par,getNewQtl(pars[[i-1]]$par,c(1,-1))),verbose=verbose)
+   if(calcbic(plus$par)<calcbic(minus$par)){
+    pars[[i]]<-plus
+   }else{
+    pars[[i]]<-minus
+   } 
+#   newQtl<-getNewQtl(pars[[i-1]]$par,c(-1,1))
+#   pars[[i]]<-findBest(c(pars[[i-1]]$par,newQtl),verbose=verbose)
    if(verbose) print(paste(i-1,"QTLs:",calcbic(pars[[i]]$par)))
    newVal<-calcbic(pars[[i]]$par)
    if(newVal<=bestVal){
@@ -126,6 +143,7 @@ for (chr in unique(hs_all[,1])){
  }
  bestPar<-pars[[which.min(sapply(pars,function(x) calcbic(x$par)))]]$par 
  #do plot
+ if(verbose) dev.off()
  estPlot(bestPar)
  #output parameters to file
  sapply(pars,function(x) write.table( matrix(c(chr,calcbic(x$par),x$par),nrow=1),file=paste(outprefix,"_modelParameters.csv",sep=""), append=TRUE, sep="\t", quote=FALSE, row.names=FALSE, col.names=FALSE))
@@ -179,24 +197,26 @@ toPrint<-sapply(unique(hs_all[,1]),function(chr){
     toPrint<-rbind(toPrint,matrix(c(chr,q[i,],rep(NA,ehc),"FN","" ),ncol=length(header)))
    }
   }
-  toPrint
+  t(toPrint)
  }else if(cq>0){
   #False Negative
   matrix(apply(q,1,function(x) matrix(c(chr,x,rep(NA,ehc),"FN","" ),ncol=length(header))),ncol=length(header),byrow=TRUE)
  }else if(ce>0){
   #False Positive
-  matrix(apply(e,1,function(x) matrix(c(chr,rep(NA,qhc),x,"FP","" ),ncol=length(header))),ncol=length(header),byrow=TRUE)
+  t(matrix(apply(e,1,function(x) matrix(c(chr,rep(NA,qhc),x,"FP","" ),ncol=length(header))),ncol=length(header),byrow=TRUE))
  }else{
   #True Negative
-  matrix(c(chr,rep(NA,qhc+ehc),"TN","" ),ncol=length(header))
+  t(matrix(c(chr,rep(NA,qhc+ehc),"TN","" ),ncol=length(header)))
  }
 })
 
+
 if(is.list(toPrint)){
- toPrint<-do.call(rbind,toPrint)
+ toPrint<-do.call(rbind,sapply(toPrint,t))
 }else{
  toPrint<-matrix(toPrint,ncol=length(header),byrow=TRUE)
 }
+
 
 colnames(toPrint)<-header
 

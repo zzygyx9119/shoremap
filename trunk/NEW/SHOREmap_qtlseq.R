@@ -1,7 +1,10 @@
 #v09 - changes in ploting
 #v10 - added the true interval of the qtl
-
-source("~/shoreMap/NEW/SHOREmap_qtlseq_lib.R")
+#v11 - removed bootstrapping
+#v12 - fixed output and corrected thresholds
+#v13 - return of the bootstrap
+library(bbmle)
+source("/projects/dep_coupland/grp_nordstrom/projects/Lotus/Simulation/PopSimulatorRIL/Rcode/SHOREmap_qtlseq_lib.R")
 
 #Run.....
 
@@ -108,42 +111,31 @@ data<-cbind(data,p)
 
 shifts<-seq(0,winSize-1,winStep)
 
-#sapply(unique(data[,1]),function(chr){
-#system.time({
+
+
 cutOffs<-matrix(c(sapply(unique(data[,1]),function(chr){
  data2<-data[data[,1]==chr,]
  nrOfMarkers<-nrow(data2)
  nrInWindow<-round(nrOfMarkers/max(data2[,2])*winSize)
  replicate(bootstrap,{
-#  p<-data2[,2]
-#  i<-sample(1:(nrOfMarkers-nrInWindow+1),size=ceiling(nrOfMarkers/nrInWindow),replace=TRUE)
-#  i<-sapply(i,function(x) x:(x+nrInWindow-1))[1:nrOfMarkers]
+  p<-data2[,2]
+  i<-sample(1:(nrOfMarkers-nrInWindow+1),size=ceiling(nrOfMarkers/nrInWindow),replace=TRUE)
+  i<-sapply(i,function(x) x:(x+nrInWindow-1))[1:nrOfMarkers]
   d2<-data2
   d2[,11]<-d2[,11]*sample(c(1,-1),nrOfMarkers,replace=TRUE)
   sorted<-windowedScore(d2,winSize,winStep,minMarkersInWindow,p.valueCutoff)
   sorted<-sorted[sorted[,1]>min(data2[,2])+winSize/2 & sorted[,1]<max(data2[,2])-winSize/2,]
   peaks<-predictAllPeaks(sorted,winSize,FALSE)
-#  lines(sorted[,c(1,4)],col="red")  
+  #lines(sorted[,c(1,4)],col="red")  
   rbind(peaks[,2],pmax(peaks[,3],peaks[,4]))
  },simplify=TRUE)
 }),recursive=TRUE),ncol=2,byrow=TRUE)
-#})
-
-#cutOffs2<-c(sapply(unique(data[,1]),function(chr){
-# data2<-data[data[,1]==chr,]
-# nrOfMarkers<-nrow(data2)
-# nrInWindow<-round(nrOfMarkers/max(data2[,2])*winSize)
-# replicate(bootstrap,{
-#  d2<-data2
-#  d2[,11]<-d2[,11]*sample(c(1,-1),nrOfMarkers,replace=TRUE)
-#  sorted<-windowedScore(d2,winSize,winStep,minMarkersInWindow,p.valueCutoff)
-#  sorted[sorted[,1]>min(data2[,2])+winSize/2 & sorted[,1]<max(data2[,2])-winSize/2,3]
-# },simplify=TRUE)
-#}),recursive=TRUE)
 
 
 
-#cutOffs<- matrix(rep(0,20000),ncol=2)
+
+
+#cutOffs<- matrix(rep(c(minAbsolutePeak,minFrequencyChange),10000),ncol=2,byrow=TRUE)
 
 cutOffs<-cbind(sort(abs(cutOffs[,1])),sort(cutOffs[,2]))
 
@@ -302,21 +294,21 @@ toPrint<-sapply(unique(data[,1]),function(chr){
     toPrint<-rbind(toPrint,matrix(c(chr,q[i,],rep(NA,ehc),"FN","" ),ncol=length(header)))
    }
   }
-  toPrint
+  t(toPrint)
  }else if(cq>0){
   #False Negative
-  matrix(apply(q,1,function(x) matrix(c(chr,x,rep(NA,ehc),"FN","" ),ncol=length(header))),ncol=length(header),byrow=TRUE)
+  t(matrix(apply(q,1,function(x) matrix(c(chr,x,rep(NA,ehc),"FN","" ),ncol=length(header))),ncol=length(header),byrow=TRUE))
  }else if(ce>0){
   #False Positive
-  matrix(apply(e,1,function(x) matrix(c(chr,rep(NA,qhc),x,"FP","" ),ncol=length(header))),ncol=length(header),byrow=TRUE)
+  t(matrix(apply(e,1,function(x) matrix(c(chr,rep(NA,qhc),x,"FP","" ),ncol=length(header))),ncol=length(header),byrow=TRUE))
  }else{
   #True Negative
-  matrix(c(chr,rep(NA,qhc+ehc),"TN","" ),ncol=length(header))
+  t(matrix(c(chr,rep(NA,qhc+ehc),"TN","" ),ncol=length(header)))
  }
 })
 
 if(is.list(toPrint)){
- toPrint<-do.call(rbind,toPrint)
+ toPrint<-do.call(rbind,sapply(toPrint,t))
 }else{
  toPrint<-matrix(toPrint,ncol=length(header),byrow=TRUE)
 }
