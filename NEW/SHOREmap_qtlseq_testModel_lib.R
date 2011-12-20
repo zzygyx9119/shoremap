@@ -16,6 +16,19 @@ freq<-function(x){
  }
 }
 
+freq_mod<-function(x){
+ if(length(x)==1){
+  #no qtl
+  rep(x[1],length(a.t[,1]))
+ }else{
+  baseline<-x[1]
+  qtlest<-matrix(x[-1],byrow=TRUE,ncol=4)
+  rowSums(apply(qtlest,1,singleQtl))
+ }
+}
+
+
+
 separateParameters<-function(x){
  base<-matrix(x[1:2],nrow=1)
  qtlp<-matrix(x[-(1:2)],nrow=7)
@@ -25,9 +38,11 @@ separateParameters<-function(x){
 }
 
 estPlot<-function(x){
- plot(a.t[,c(1,3)],type="l",ylim=c(0,1),xlab="position",ylab="frequency")
- lines(a.t[,1:2])
- apply(matrix(unique(qtls[,2]),ncol=1),1,function(x) abline(v=x))
+ plot(a.t[,c(1,3)],type="p",pch=16,ylim=c(0,1),col="darkgray",xlab="position",ylab="frequency")
+ points(a.t[,1:2],pch=16,col="lightgray")
+ if(nrow(qtls)>0){
+  apply(matrix(unique(qtls[,2]),ncol=1),1,function(x) abline(v=x))
+ }
  par<-separateParameters(x)
  lines(a.t[,1],freq(par$x1),col="red")
  lines(a.t[,1],freq(par$x2),col="red")
@@ -53,7 +68,7 @@ checkRecombinationRates<-function(x,chrsize,verbose=FALSE){
   qtlest<-qtlest[sort(qtlest[,1],index.return=TRUE)$ix,]
   #find transitions between negative and positive qtl loci
   transitions<-diff(sign(qtlest[,2]))
-  pm<-which(transitions!=0)
+  pm<-which(abs(transitions)==2)
   chk<--1
   #demand that the number of recombinations towards the differently directed qtl are at least as many as on the other side
   if(length(pm)>0){
@@ -97,7 +112,7 @@ parameterConstraints_sub<-function(df,verbose=FALSE){
  }else if(any(abs(df[seq(3,nrow(df),4),])>1)){
   if(verbose) print("effect out of bounds")
   5
- }else if(any(df[c(seq(4,nrow(df),4),seq(5,nrow(df),4)),]<=5e6)){
+ }else if(any(df[c(seq(4,nrow(df),4),seq(5,nrow(df),4)),]<1e7-1)){# optim is c code machine tolerance
   if(verbose) print("too small rates")
   6
  }else if(any(abs(df[seq(3,nrow(df),4),1]+df[1,1]-0.5)>0.5)){
@@ -145,19 +160,30 @@ parameterConstraints<-function(df,verbose=FALSE){
 
 getNewQtl<-function(x,direction=c(-1,1)){
  chrsize<-max(a.t[,1])+1
- posToUse<-if(length(x)==2){
-  round(chrsize/2)
+ posToUse<-0
+ effect<-c(0,0)
+ if(length(x)==2){
+  posToUse<-round(chrsize/2)
+  effect<-sign(x-0.5)*1e-2
  }else{
   df<-separateParameters(x)
   #find section with most deviation per marker
   pos<-matrix(sort(df[seq(2,nrow(df),4),1]),ncol=1)
   windows<-rowSums(apply(pos,1,function(p) ifelse(a.t[,1]<p,0,1)))
-  distance<-(a.t[,2]-freq(df$x1))**2+(a.t[,3]-freq(df$x2))**2
-  round((diff(c(0,pos,chrsize))/2+c(0,pos))[which.max(tapply(distance,windows,mean))])
+  d1<-freq(df$x1)-a.t[,2]
+  d2<-freq(df$x2)-a.t[,3]
+  winToUse<-which.max(tapply(d1**2+(d2)**2,windows,mean))
+  posToUse<-round((diff(c(0,pos,chrsize))/2+c(0,pos))[winToUse])
+  effect<-sign(c(tapply(d1,windows,mean)[winToUse],tapply(d2,windows,mean)[winToUse]))*1e-2
  }
  #set direction of effects
- effect<-sign(direction)*5e-2
- c(posToUse,effect[1],1e7,1e7,effect[2],1e7,1e7)
+ effect<-direction*3e-2
+ par<-c(posToUse,effect[1],1e7,1e7,effect[2],1e7,1e7)
+ if(is.na(parameterConstraints(separateParameters(c(x,par))))){
+  c(posToUse,0,1e7,1e7,0,1e7,1e7)
+ }else{
+  par
+ }
 }
 
 addQtl_sub<-function(x,direction=c(-1,1)){
@@ -238,21 +264,18 @@ freqBoth<-function(x){
 
 freqBothGrad_singleQtl<-function(q,d){
  
- count<-table(sign(a.t[,1]-q[1]))
- low<-0
- zero<-0
- high<-0
- if(any(names(count)=="-1")){
-  low<-count[names(count)=="-1"]
- }
- if(any(names(count)=="0")){
-  zero<-count[names(count)=="0"]
- }
- if(any(names(count)=="1")){
-  high<-count[names(count)=="1"]
- }
- (d* singleQtl(q)) %*% cbind(c(rep(-4/3/q[3],low),rep(0,zero),rep(4/3/q[4],high)), rep(1/q[2],length(d)), c(4*(q[1]-a.t[1:low,1])/3/q[3]**2,rep(0,zero+high)), c(rep(0,low+zero),4*(a.t[(length(d)-high+1):length(d),1]-q[1])/3/q[4]**2))
+ s<-sign(a.t[,1]-q[1])
+ 
+ lowIndex<-which(s==-1)
+ highIndex<-which(s==1)
+ 
+ low<-length(lowIndex)
+ zero<-length(which(s==0))
+ high<-length(highIndex)
+
+ (d* singleQtl(q)) %*% cbind(c(rep(-4/3/q[3],low),rep(0,zero),rep(4/3/q[4],high)), rep(1/q[2],length(d)), c(4*(q[1]-a.t[lowIndex,1])/3/q[3]**2,rep(0,zero+high)), c(rep(0,low+zero),4*(a.t[highIndex,1]-q[1])/3/q[4]**2))
 }
+
 
 freqBothGrad<-function(x){
  #analytical gradient of the squared sum
@@ -418,10 +441,13 @@ findBest<-function(par.start,tolerance=1e4,focus=TRUE,verbose=FALSE){
    print(opt$val)
   }
  }
+ opt
+}
+
+refine<-function(par.start,tolerance=1e4,focus=TRUE,verbose=FALSE){
  if(verbose){
   print("Refining...")
  }
- par.start<-opt$par
  scale<-par.start
  if(focus){
   scale<-calcFocusScale(par.start)
