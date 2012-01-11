@@ -222,8 +222,11 @@ filterSampling<-function(internalData,fs_windowsize=200000,fs_limit=0.05,fs_exac
    x<-c(red[red[,1]==curPos,2:4],recursive=TRUE)
    red2<- red[red[,1]!=curPos & !red[,5],]
    if(nrow(red2)>0){
-    p.win<-colSums(red2[,2:4]) 
+    p.win<-colSums(red2[,2:4])
+    p.win<-p.win+1/500 
     p.win<-p.win/sum(p.win) #0
+
+    
 #   if(fs_exact){
 #    sink("/dev/null");
 #    p<-multinomial.test(x,prob=fs_p.win)$p.value
