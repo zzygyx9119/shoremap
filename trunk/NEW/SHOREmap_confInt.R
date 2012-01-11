@@ -6,9 +6,30 @@
 
 #chromosome,positions, background_count,forground_count and error_count are vectors of the same length
 require(bbmle)
-require(EMT)
+#require(EMT)
 
-ShoreMap.confint <- function(chromosome,positions, background_count, foreground_count, error_count, foreground_frequency=1, level=0.99, recurse=FALSE, forceInclude=TRUE, allowAdjustment=0.0, filterOutliers=200000, filterPValue=0.05, winSize=50000, winStep=10000, minMarker=10, minCoverage=0,maxCoverage=Inf, peakFinding=3, peakWinSize=50000, peakWinStep=10000) {
+ShoreMap.confint <- function(chromosome,positions, background_count, foreground_count, error_count, foreground_frequency=1, level=0.99, recurse=FALSE, forceInclude=TRUE, allowAdjustment=0.0, filterOutliers=200000, filterPValue=0.05, winSize=50000, winStep=10000, minMarker=10, minCoverage=0, maxCoverage=Inf, peakFinding=3, peakWinSize=50000, peakWinStep=10000) {
+ 
+ verbose=FALSE
+
+ if(verbose){
+  print(paste("foreground_frequency=", foreground_frequency), sep="")
+  print(paste("level=", level), sep="")
+  print(paste("recurse=", recurse), sep="")
+  print(paste("forceInclude=", forceInclude), sep="")
+  print(paste("allowAdjustment=", allowAdjustment), sep="")
+  print(paste("filterOutliers=", filterOutliers), sep="")
+  print(paste("filterPValue=", filterPValue), sep="")
+  print(paste("winSize=", winSize), sep="")
+  print(paste("winStep=", winStep), sep="")
+  print(paste("minMarker=", minMarker), sep="")
+  print(paste("minCoverage=", minCoverage), sep="")
+  print(paste("maxCoverage=", maxCoverage), sep="")
+  print(paste("peakFinding=", peakFinding), sep="")
+  print(paste("peakWinSize=", peakWinSize), sep="")
+  print(paste("peakWinStep=", peakWinStep), sep="")
+ }
+
 # allowAdjustment=0.0
 # minMarker=10
 # level<-c(0.95,0.99,0.999)
@@ -18,6 +39,7 @@ ShoreMap.confint <- function(chromosome,positions, background_count, foreground_
  minMarker<-max(1,minMarker)
  foreground_frequency<-as.numeric(foreground_frequency)
  internalData<- cbind(chromosome,positions,foreground_count,background_count,error_count)
+# internalData<- data.frame(V1=chromosome, V2=positions, V3=foreground_count, V4=background_count, V5=error_count)
  internalData<- internalData[rowSums(internalData[,3:5])>minCoverage&rowSums(internalData[,3:5])<maxCoverage,]
  print(paste("Analysing chr ",chromosome[1],", with ",length(chromosome)," (",length(internalData[,1]),") markers for equality to ",foreground_frequency,"(",typeof(foreground_frequency),")",sep=""))
  assign("storage_shoremapmle",matrix(c(-1,-1,-1),nrow=1),".GlobalEnv")
@@ -117,7 +139,7 @@ ShoreMap.confint <- function(chromosome,positions, background_count, foreground_
    res<- identify_peaks(1,length(internalData[,2]),foreground_frequency,level,minWindow,peak_posFreq[,c(1,peakFinding)],bestsize,recurse,forceInclude, allowAdjustment)
    res<-matrix(res[res[,3]<0,],ncol=4)
    if(!is.null(dim(res))&&dim(res)[1]>0){
-    ci<-matrix(apply(res,1,function(x) t(c(start=ifelse(x[3]<0,internalData[max(x[1]-1,1),2]+1,0), stop=ifelse(x[3]<0,internalData[min(x[1]+x[2],length(internalData[,2])),2]-1,0),p.value=ifelse(x[3]<0,-1*(x[3]+x[2]),x[3]),level=x[4],nrOfMarkers= x[2]))),nrow=5)
+    ci<-matrix(apply(res,1,function(x) t(c(start=ifelse(x[3]<0,internalData[max(x[1]-1,1),2]+1,0), stop=ifelse(x[3]<0,internalData[min(x[1]+x[2],length(internalData[,2])),2]-1,0),p.value=ifelse(x[3]<0,x[4]+x[3]+x[2],x[3]),level=x[4],nrOfMarkers= x[2]))),nrow=5)
     print("Found interval:")
 #    print(ci)
     for(i in 1:length(ci[1,])){
@@ -140,10 +162,10 @@ filterSampling<-function(internalData,fs_windowsize=200000,fs_limit=0.05,fs_exac
  chrStart<-min(internalData[,2])
  chrEnd<-max(internalData[,2])
  indices<-1:size
- largeWindow<-fs_windowsize*2
+ largeWindow<-fs_windowsize*4 #use the double size to make sure the window is enclosed
  windows1<-floor((internalData[,2])/largeWindow)
  uniqueWin1<-unique(windows1)
- windows2<-floor((internalData[,2]+fs_windowsize)/largeWindow)
+ windows2<-floor((internalData[,2]+largeWindow/2)/largeWindow)
  uniqueWin2<-unique(windows2)
  freqs<-internalData[,3]/rowSums(internalData[,3:5])
  diffDataRaw<-abs(diff(freqs))
@@ -154,15 +176,16 @@ filterSampling<-function(internalData,fs_windowsize=200000,fs_limit=0.05,fs_exac
  #corresponds to adjusting the p-values below with respect to size nr of tests
  limit<-fs_limit/size
 
- data1<-tapply(indices,windows1,function(x) data.frame(internalData[x,2:5],rep(FALSE,length(x))))
- data2<-tapply(indices,windows2,function(x) data.frame(internalData[x,2:5],rep(FALSE,length(x))))
+ #use two frames and choose the frame closest to the current marker position
+ data1<-tapply(indices,windows1,function(x) data.frame(internalData[x,2] ,internalData[x,3] ,internalData[x,4] ,internalData[x,5] ,rep(FALSE,length(x))))
+ data2<-tapply(indices,windows2,function(x) data.frame(internalData[x,2] ,internalData[x,3] ,internalData[x,4] ,internalData[x,5] ,rep(FALSE,length(x))))
  filtered<-c()
  for(i in indices){
   #get marker to test this iteration
   curIndex<-which.max(diffDataMod)
 
   curPos<-allPos[curIndex]
-
+  if(curPos==19806951) break
   #start and end of window
   start<-max(chrStart,curPos-fs_windowsize/2) #0
   end<- start + fs_windowsize #0
@@ -175,34 +198,46 @@ filterSampling<-function(internalData,fs_windowsize=200000,fs_limit=0.05,fs_exac
   curWin2<-curWin1+0.5
   use1<-abs((curWin1%%1)-0.5)<abs((curWin2%%1)-0.5)
   curWin1<-which(uniqueWin1==floor(curWin1))
+ # if(curWin1==178) break
   curWin2<-which(uniqueWin2==floor(curWin2))
+#  print(paste(curWin1,curWin2))
   red<-c()
   curSize<-0
   if(use1){
+   #include markers within window
    toUse<-data1[[curWin1]][,1]>=start &data1[[curWin1]][,1]<=end
+   #add four closest markers
+   toUse<- toUse | 1:length(toUse) %in% sort(abs(data2[[curWin2]][,1]-curPos),index.return=TRUE)$ix[1:min(5,length(toUse))]
    curSize<-sum(toUse)
    red<-data1[[curWin1]][toUse,]
   }else{
+   #include markers within window
    toUse<-data2[[curWin2]][,1]>=start &data2[[curWin2]][,1]<=end
+   #add four closest markers
+   toUse<- toUse | 1:length(toUse) %in% sort(abs(data2[[curWin2]][,1]-curPos),index.return=TRUE)$ix[1:min(5,length(toUse))]
    curSize<-sum(toUse)
    red<-data2[[curWin2]][toUse,]
   }
-  p<-1
-  if(curSize>3){
+  p<-if(curSize>3){
    x<-c(red[red[,1]==curPos,2:4],recursive=TRUE)
-   red<- red[red[,1]!=curPos & !red[,5],]
-
-   p.win<-colSums(red[,2:4]) 
-   p.win<-p.win/sum(p.win) #0
-   if(fs_exact){
-    sink("/dev/null");
-    p<-multinomial.test(x,prob=fs_p.win)$p.value
-    sink();
-   }else{
+   red2<- red[red[,1]!=curPos & !red[,5],]
+   if(nrow(red2)>0){
+    p.win<-colSums(red2[,2:4]) 
+    p.win<-p.win/sum(p.win) #0
+#   if(fs_exact){
+#    sink("/dev/null");
+#    p<-multinomial.test(x,prob=fs_p.win)$p.value
+#    sink();
+#   }else{
     fs_p1<-p.win[3] #0
     fs_p2<-p.win[1]/sum(p.win[1:2]) #0
-    p<-pbinom(x[3]+ifelse(x[3]<sum(x)*fs_p1,1,-1),size=sum(x),prob=fs_p1,lower.tail=x[3]<sum(x)*fs_p1)*pbinom(x[1]+ifelse(x[1]<sum(x[1:2])*fs_p2,1,-1),size=sum(x[1:2]),prob=fs_p2,lower.tail=x[1]<sum(x[1:2])*fs_p2) #0.001
+    pbinom(x[3]+ifelse(x[3]<sum(x)*fs_p1,1,-1),size=sum(x),prob=fs_p1,lower.tail=x[3]<sum(x)*fs_p1)*pbinom(x[1]+ifelse(x[1]<sum(x[1:2])*fs_p2,1,-1),size=sum(x[1:2]),prob=fs_p2,lower.tail=x[1]<sum(x[1:2])*fs_p2) #0.001
+#   }
+   }else{
+    1
    }
+  }else{
+   1
   }
   #judgement
   if(p<=limit){ #0.011
@@ -447,9 +482,9 @@ maxConf<-function(x,level=0.95,freq=0,indexL=0,indexH=Inf,minWindow=10,include=c
 #    p<- pchisq(-2*(fit@min-restrictedFit@min),1)
     p<- pchisq(-2*(fit$min-restrictedFit@min),1)
     if(p<=level){
-     res<- -size-p
+     res<- -size-(level-p)
     }else{
-     res<- size+p
+     res<- size+(level-p)
     }
    }
    assign("storage_shoremapmle",rbind(storage_shoremapmle,c(start,size,res)),".GlobalEnv")
@@ -528,7 +563,7 @@ extend <- function(beststart,bestsize=10,level=0.99,freq=1,indexL=0,indexH=Inf,m
   lastvalue<- maxConf(c(beststart,bestsize),level=level,freq=freq,indexL=indexL,indexH=indexH,minWindow=minWindow,include=inclusion)
   curvalue<-maxConf(c(beststart-floor(i/2),bestsize+i),level=level,freq=freq,indexL=indexL,indexH=indexH,minWindow=minWindow,include=inclusion)
   
-  while(i<1000&&curvalue<lastvalue){
+  while(i<minWindow*2&&curvalue<lastvalue){
    lastvalue<-curvalue
    i<-i+1
    curvalue<-maxConf(c(beststart-floor(i/2),bestsize+i),level=level,freq=freq,indexL=indexL,indexH=indexH,minWindow=minWindow,include=inclusion)
@@ -536,12 +571,12 @@ extend <- function(beststart,bestsize=10,level=0.99,freq=1,indexL=0,indexH=Inf,m
   i<-i-1
   beststart<-beststart-floor(i/2)
   bestsize<-bestsize+i
-  if(i%%2==0){
+  if(i%%2==0 && i<2*minWindow){
    #if the extension breaks down on the right, continue on to expand left
    i<-1
    lastvalue<-maxConf(c(beststart,bestsize),level=level,freq=freq,indexL=indexL,indexH=indexH,minWindow=minWindow,include=inclusion)
    curvalue<-maxConf(c(beststart-i,bestsize+i),level=level,freq=freq,indexL=indexL,indexH=indexH,minWindow=minWindow,include=inclusion)
-   while(i<1000&&curvalue<lastvalue){
+   while(i<minWindow&&curvalue<lastvalue){
     lastvalue<-curvalue
     i<-i+1
     curvalue<-maxConf(c(beststart-i,bestsize+i),level=level,freq=freq,indexL=indexL,indexH=indexH,minWindow=minWindow,include=inclusion)
@@ -554,7 +589,7 @@ extend <- function(beststart,bestsize=10,level=0.99,freq=1,indexL=0,indexH=Inf,m
    i<-1
    lastvalue<-maxConf(c(beststart,bestsize),level=level,freq=freq,indexL=indexL,indexH=indexH,minWindow=minWindow,include=inclusion)
    curvalue<-maxConf(c(beststart,bestsize+i),level=level,freq=freq,indexL=indexL,indexH=indexH,minWindow=minWindow,include=inclusion)
-   while(i<1000&&curvalue<lastvalue){
+   while(i<minWindow&&curvalue<lastvalue){
     lastvalue<-curvalue
     i<-i+1
     curvalue<-maxConf(c(beststart,bestsize+i),level=level,freq=freq,indexL=indexL,indexH=indexH,minWindow=minWindow,include=inclusion)
@@ -571,170 +606,4 @@ extend <- function(beststart,bestsize=10,level=0.99,freq=1,indexL=0,indexH=Inf,m
 
 
 
-#version4
-filterSamplingv4<-function(internalData,fs_windowsize=200000,fs_limit=0.05,fs_exact=FALSE){
- size<-length(internalData[,2])
- indices<-1:size
- largeWindow<-fs_windowsize*8
- shift<-0
- windows1<-floor((internalData[,2]+shift)/largeWindow)
- shift<-fs_windowsize*4
- windows2<-floor((internalData[,2]+shift)/largeWindow)
- #calculate overlapping windows and remove only those that are removed in both runs
- c(tapply(indices,windows1,function(x) filterSamplingv4_sub(internalData[x,],fs_windowsize,fs_limit,fs_exact,size)),recursive=TRUE) & c(tapply(indices,windows2,function(x) filterSamplingv4_sub(internalData[x,],fs_windowsize,fs_limit,fs_exact,size)),recursive=TRUE)
-}
-
-filterSamplingv4_sub <-function(internalData,fs_windowsize=200000,fs_limit=0.05,fs_exact=FALSE,fs_totSize){
- fs_freqs<-internalData[,3]/rowSums(internalData[,3:5])
- #fs_allPos<-internalData[,2]
- fs_n<-length(fs_freqs)
- fs_tested<- rep(FALSE,fs_n)
- #fs_filter<- rep(FALSE,fs_n)
- fs_allIndices<-1:fs_n
-
- fs_chrStart<-min(internalData[,2])
- fs_chrEnd<-max(internalData[,2])
- fs_diff<-abs(diff(fs_freqs))
- fs_diff<-c(fs_diff[1],fs_diff)+c(fs_diff,fs_diff[fs_n-1])
-  
-
- fs_data<-data.frame(fs_diff,fs_freqs,fs_tested,internalData[,2:5],rep(FALSE,fs_n))
- fs_notFiltered<-1:fs_n
- fs_filtered<-c()
- min_diff<-Inf
-# system.time({
- while(sum(!fs_data[,3])>0){
-
-#  system.time({
-  fs_curIndex<-which.max(fs_data[,1]) #0.001
-#  fs_curPos<-fs_data[fs_curIndex,4]
-  fs_curPosData<-c(fs_data[fs_curIndex,],recursive=TRUE) #0.002
-
-#   plot(internalData[!fs_filter,2],fs_diff)
-#   abline(v=fs_curPos,col="red")
-
-  #calculate window to use
-  fs_start<-max(fs_chrStart,fs_curPosData[4]-fs_windowsize/2) #0
-  fs_end<- fs_start + fs_windowsize #0
-  if(fs_end>fs_chrEnd){ #0
-   fs_start<-max(fs_chrStart,fs_end-fs_windowsize)
-  }
-  fs_toUse<-fs_data[,4]>=fs_start & fs_data[,4]<=fs_end & !fs_data[,8] & fs_data[,4]!=fs_curPosData[4] #0.021
-
-  fs_p<-1 #0
-  if(sum(fs_toUse)>3){ #0.001
-#   fs_red<-fs_data[fs_toUse,] #0.047
-#   fs_red<-fs_red[fs_red[,4]!=fs_curPos & !fs_red[,8],] #0.001
-
-   fs_p.win<-colSums(fs_data[fs_toUse,5:7]) #0.022
-   fs_p.win<-fs_p.win/sum(fs_p.win) #0
-#   fs_p.win<-colSums(fs_data[,3:5])/sum(fs_data[,3:5])
-   if(fs_exact){
-    sink("/dev/null");
-    fs_p<-multinomial.test(c(internalData[fs_curIndex,3:5],recursive=TRUE),prob=fs_p.win)$p.value
-    sink();
-   }else{
-    fs_p1<-fs_p.win[3] #0
-    fs_p2<-fs_p.win[1]/sum(fs_p.win[1:2]) #0
-    x<-fs_curPosData[5:7] #0
-    fs_p<-pbinom(x[3]+ifelse(x[3]<sum(x)*fs_p1,1,-1),size=sum(x),prob=fs_p1,lower.tail=x[3]<sum(x)*fs_p1)*pbinom(x[1]+ifelse(x[1]<sum(x[1:2])*fs_p2,1,-1),size=sum(x[1:2]),prob=fs_p2,lower.tail=x[1]<sum(x[1:2])*fs_p2) #0.001
-   }
-  }
-#  })
-
-  if(p.adjust(fs_p,method="holm",n=fs_totSize)<=fs_limit){ #0.011
-#   if(fs_data[fs_curIndex,1]<min_diff){
-#    min_diff<-fs_data[fs_curIndex,1]
-#    print(fs_data[fs_curIndex,])
-#   }
-   #mark outlier
-   fs_data[fs_curIndex,c(1,3,8)]<-c(-1,TRUE,TRUE) #0.010
-  
-   #recalculate diff values for neighboring markers
-   fs_before<-fs_curIndex-1 #0
-   while(sum(fs_before==fs_filtered)>0){ #~0 with no markers in fs_filtered
-    fs_before<-fs_before-1
-   }
-   fs_after<-fs_curIndex+1 #0
-   while(sum(fs_after==fs_filtered)>0){ #0 with no markers in fs_filtered
-    fs_after<-fs_after+1
-   }
-   if(fs_before<1){
-    #first marker
-    fs_data[fs_after,1]<-2*(fs_data[fs_after,1]-abs(fs_data[fs_after,2]-fs_curPosData[2]))
-   }else if(fs_after>fs_n){
-    #last marker
-    fs_data[fs_before,1]<-2*(fs_data[fs_before,1]-abs(fs_data[fs_before,2]-fs_curPosData[2]))
-   }else{
-    fs_flank<-abs(fs_data[fs_before,2]-fs_data[fs_after,2]) #0.001
-
-    fs_data[fs_before,1]<-fs_data[fs_before,1]-abs(fs_data[fs_before,2]-fs_curPosData[2])+fs_flank #0.011
-
-    fs_data[fs_after,1]<-fs_data[fs_after,1]-abs(fs_data[fs_after,2]-fs_curPosData[2])+fs_flank #0.012
-   }
-
-
-
-   #add the position to the filtered positions
-   fs_filtered<-c(fs_filtered,fs_curIndex) #0
-  }else{
-   fs_data[fs_curIndex,c(1,3)]<-c(-1,TRUE) #0.011
-  }
-#  sum(!fs_data[,3])>0
- }
-# })
- !fs_data[,8]
-}
-
-filterSamplingv3 <-function(internalData,fs_windowsize=200000,fs_limit=0.05,fs_exact=FALSE){
- fs_freqs<-internalData[,3]/rowSums(internalData[,3:5])
- fs_allPos<-internalData[,2]
- fs_n<-length(fs_freqs)
- fs_tested<- rep(FALSE,fs_n)
- fs_filter<- rep(FALSE,fs_n)
- fs_allIndices<-1:fs_n
- fs_chrStart<-min(fs_allPos)
- fs_chrEnd<-max(fs_allPos)
-
- while(sum(!fs_tested)>0){
-#  system.time({
-  fs_diff<-abs(diff(fs_freqs[!fs_filter])) #0.038
-  fs_diff<-c(0,fs_diff)+c(fs_diff,0) #0.043
-  
-  fs_curIndex<-fs_allIndices[!fs_filter][!fs_tested[!fs_filter]][which.max(fs_diff[!fs_tested[!fs_filter]])] #0.037
-  fs_curPos<-internalData[fs_curIndex,2]
-
-#   plot(internalData[!fs_filter,2],fs_diff)
-#   abline(v=fs_curPos,col="red")
-
-  #calculate window to use
-  fs_start<-max(fs_chrStart,fs_curPos-fs_windowsize/2)
-  fs_end<- fs_start + fs_windowsize
-  if(fs_end>fs_chrEnd){
-   fs_start<-max(fs_chrStart,fs_end-fs_windowsize)
-  }
-  fs_toUse<-fs_allPos>=fs_start & fs_allPos<=fs_end & fs_allPos != fs_curPos & !fs_filter  #0.021
-  fs_size<- sum(fs_toUse)
-  fs_p<-1
-  if(fs_size>3){
-   assign("dataset_shoremapmle",internalData[fs_toUse,],".GlobalEnv") #0.031
-   fs_p.win<- samplefreqs(1,fs_size) #0.003
-#   fs_p.win<-colSums(fs_data[,3:5])/sum(fs_data[,3:5])
-   if(fs_exact){
-    sink("/dev/null");
-    fs_p<-multinomial.test(c(internalData[fs_curIndex,3:5],recursive=TRUE),prob=fs_p.win)$p.value
-    sink();
-   }else{
-    fs_p1<-fs_p.win[3]
-    fs_p2<-fs_p.win[1]/sum(fs_p.win[1:2])
-    x<-c(internalData[fs_curIndex,3:5],recursive=TRUE)
-    fs_p<-pbinom(x[3]+ifelse(x[3]<sum(x)*fs_p1,1,-1),size=sum(x),prob=fs_p1,lower.tail=x[3]<sum(x)*fs_p1)*pbinom(x[1]+ifelse(x[1]<sum(x[1:2])*fs_p2,1,-1),size=sum(x[1:2]),prob=fs_p2,lower.tail=x[1]<sum(x[1:2])*fs_p2)
-   }
-  }
-  fs_filter[fs_curIndex]<- p.adjust(fs_p,method="holm",n=fs_n)<=fs_limit #0.011
-  fs_tested[fs_curIndex]<-TRUE #0
-#  })
- }
- !fs_filter
-}
 
