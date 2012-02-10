@@ -207,14 +207,14 @@ filterSampling<-function(internalData,fs_windowsize=200000,fs_limit=0.05,fs_exac
    #include markers within window
    toUse<-data1[[curWin1]][,1]>=start &data1[[curWin1]][,1]<=end
    #add four closest markers
-   toUse<- toUse | 1:length(toUse) %in% sort(abs(data2[[curWin2]][,1]-curPos),index.return=TRUE)$ix[1:min(5,length(toUse))]
+   toUse<- toUse | 1:length(toUse) %in% sort(abs(data2[[curWin2]][,1]-curPos),index.return=TRUE)$ix[1:min(3,length(toUse))]
    curSize<-sum(toUse)
    red<-data1[[curWin1]][toUse,]
   }else{
    #include markers within window
    toUse<-data2[[curWin2]][,1]>=start &data2[[curWin2]][,1]<=end
    #add four closest markers
-   toUse<- toUse | 1:length(toUse) %in% sort(abs(data2[[curWin2]][,1]-curPos),index.return=TRUE)$ix[1:min(5,length(toUse))]
+   toUse<- toUse | 1:length(toUse) %in% sort(abs(data2[[curWin2]][,1]-curPos),index.return=TRUE)$ix[1:min(3,length(toUse))]
    curSize<-sum(toUse)
    red<-data2[[curWin2]][toUse,]
   }
@@ -246,8 +246,12 @@ filterSampling<-function(internalData,fs_windowsize=200000,fs_limit=0.05,fs_exac
   if(p<=limit){ #0.011
 
    #mark outlier
-   data1[[curWin1]][data1[[curWin1]][,1]==curPos,5]<-TRUE #0.001
-   data2[[curWin2]][data2[[curWin2]][,1]==curPos,5]<-TRUE #0.001
+   if (length(data1[[curWin1]][data1[[curWin1]][,1]==curPos,5]) != 0) {
+    data1[[curWin1]][data1[[curWin1]][,1]==curPos,5]<-TRUE #0.001
+   }
+   if (length(data2[[curWin2]][data2[[curWin2]][,1]==curPos,5]) != 0) {
+    data2[[curWin2]][data2[[curWin2]][,1]==curPos,5]<-TRUE #0.001
+   }
    diffDataMod[curIndex]<--2 #0.001
   
    #recalculate diff values for neighboring markers
