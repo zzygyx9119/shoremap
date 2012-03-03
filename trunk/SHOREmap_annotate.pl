@@ -112,6 +112,7 @@ foreach my $ins_pos ( sort {$a <=> $b} keys %{$insertions->{indels}} ) {
 my %coding_ann = ();
 my %gene_ann = ();
 my %seq_type = ();
+my $ssnum = 0;
 
 if( ($gff ne "") && ($refseq_file ne "") ) {
 
@@ -147,11 +148,20 @@ if( ($gff ne "") && ($refseq_file ne "") ) {
 						$seq_type{$gene_name}{"gene"} = $columns[3] . "-" . $columns[4];
 					}
 				}
+				$ssnum = 0;
 			}
 
 			# Get mRNA locus
 			elsif( $columns[2] eq "mRNA" ) {
-				# TODO, currently not needed
+                                my ($junk, $gene_id) = split("=", $desc[0]);
+				my $isoform = 1;
+                                my $gene_name = $gene_id;
+
+                                if( $gene_id =~ /\./ ) {
+                                        ($gene_name, $isoform) = split(/\./, $gene_id);
+                                }
+
+				$seq_type{$gene_name}{"mRNA"} = $columns[3] . "-" . $columns[4];
 			}
 
 			# Get coding sequence
@@ -178,8 +188,42 @@ if( ($gff ne "") && ($refseq_file ne "") ) {
 				}
 			}
 
+			# Get exons to set splice sites 
+			elsif( $columns[2] eq "exon") {
+				my ($junk, $gene_id) = split("=", $desc[0]);
+                                my $isoform = 1;
+                                my $gene_name = $gene_id;
+                                if( $gene_id =~ /\./ ) {
+                                        ($gene_name, $isoform) = split(/\./, $gene_id);
+                                }
+
+				if($isoform == 1 && defined $seq_type{$gene_name}{"mRNA"}) {
+					# Get begin and end of exon
+					my $begin = $columns[3];
+                	                my $end = $columns[4];
+
+					# Only exon borders that are followed by another exons have splice sites
+					my ($mrna_begin, $mrna_end) = split ("-", $seq_type{$gene_name}{"mRNA"});
+					if ($begin != $mrna_begin || $end != $mrna_end) {
+
+						if ($begin != $mrna_begin) {
+							$ssnum++;
+							my $sps_begin = $columns[3]-2;
+							my $sps_end = $columns[3]-1;
+							$seq_type{$gene_name}{"splice_site_change_$ssnum"} = $sps_begin . "-". $sps_end; 
+						}
+						if ($end != $mrna_end) {
+							$ssnum++;
+							my $sps_begin = $columns[4]+1;
+                                                        my $sps_end = $columns[4]+2;
+							$seq_type{$gene_name}{"splice_site_change_$ssnum"} = $sps_begin . "-". $sps_end; 
+						}
+					}
+				}
+			}
+
 			# Get other sequence types
-			elsif( ($columns[2] eq "exon") || ($columns[2] eq "five_prime_UTR") || ($columns[2] eq "three_prime_UTR") ) {
+			elsif ( ($columns[2] eq "five_prime_UTR") || ($columns[2] eq "three_prime_UTR") ) {
 				my ($junk, $gene_id) = split("=", $desc[0]);
 				my $isoform = 1;
 				my $gene_name = $gene_id;
@@ -238,7 +282,6 @@ if( ($gff ne "") && ($refseq_file ne "") ) {
 			my $results = $gene->get_gene_snps( $chromosome, $gene_ann{$gene_name}[0], $gene_ann{$gene_name}[1],
 							$gene_ann{$gene_name}[2], $gene_name, 1, $gene_ann{$gene_name}[3], %{$coding_ann{$gene_name}});
 			$gene->get_protein_changes();
-
 		}
 
 		# Noncoding SNP/Indels
@@ -247,7 +290,6 @@ if( ($gff ne "") && ($refseq_file ne "") ) {
 
 			# SNPs
 			foreach my $snp_pos ( sort {$a <=> $b} keys %{$snps->{snps}} ) {
-
 				if( ($snp_pos >= $seq_type_start) && ($snp_pos <= $seq_type_end) ) {
 
 					# Set sequence type to CDS
@@ -255,9 +297,19 @@ if( ($gff ne "") && ($refseq_file ne "") ) {
 						$snps->{snps}{$snp_pos}{stype} = $seq_type;
 					}
 
+					# Set sequence type to splice site change
+					elsif( $seq_type =~ m/splice_site_change/ ) {
+						if( $snps->{snps}{$snp_pos}{stype} ne "CDS") {
+							$snps->{snps}{$snp_pos}{stype} = "splice_site_change";
+                                                        $snps->{snps}{$snp_pos}{gene_id} = $gene_name;
+						}
+					}
+
 					# Set sequence type to UTR
 					elsif( ($seq_type eq "five_prime_UTR") || ($seq_type eq "three_prime_UTR") ) {
-						if( $snps->{snps}{$snp_pos}{stype} ne "CDS") {
+						if(	$snps->{snps}{$snp_pos}{stype} ne "CDS" &&
+							$snps->{snps}{$snp_pos}{stype} ne "splice_site_change"
+						) {
 							$snps->{snps}{$snp_pos}{stype} = $seq_type;
 							$snps->{snps}{$snp_pos}{gene_id} = $gene_name;
 						}
@@ -267,7 +319,8 @@ if( ($gff ne "") && ($refseq_file ne "") ) {
 					elsif( $seq_type eq "gene" ) {
 						if(	($snps->{snps}{$snp_pos}{stype} ne "CDS") && 
 							($snps->{snps}{$snp_pos}{stype} ne "five_prime_UTR") && 
-							($snps->{snps}{$snp_pos}{stype} ne "three_prime_UTR")
+							($snps->{snps}{$snp_pos}{stype} ne "three_prime_UTR") &&
+							($snps->{snps}{$snp_pos}{stype} ne "splice_site_change")
 						){
 							$snps->{snps}{$snp_pos}{stype} = "intronic/noncoding";
 							$snps->{snps}{$snp_pos}{gene_id} = $gene_name;
