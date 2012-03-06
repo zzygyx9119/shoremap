@@ -5,7 +5,6 @@
 #919 too few markers after removal of 0-sum-markers, filtering. Too few means that there are less than ten or that next too all are constant
 
 #chromosome,positions, background_count,forground_count and error_count are vectors of the same length
-require(bbmle)
 #require(EMT)
 
 ShoreMap.confint <- function(chromosome,positions, background_count, foreground_count, error_count, foreground_frequency=1, level=0.99, recurse=FALSE, forceInclude=TRUE, allowAdjustment=0.0, filterOutliers=200000, filterPValue=0.05, winSize=50000, winStep=10000, minMarker=10, minCoverage=0, maxCoverage=Inf, peakFinding=3, peakWinSize=50000, peakWinStep=10000) {
@@ -25,25 +24,17 @@ ShoreMap.confint <- function(chromosome,positions, background_count, foreground_
   print(paste("minMarker=", minMarker), sep="")
   print(paste("minCoverage=", minCoverage), sep="")
   print(paste("maxCoverage=", maxCoverage), sep="")
-  print(paste("peakFinding=", peakFinding), sep="")
+  print(paste("peakFinding=", peakFinding), sep="") #3 is boost, 4 is R
   print(paste("peakWinSize=", peakWinSize), sep="")
   print(paste("peakWinStep=", peakWinStep), sep="")
  }
 
-# allowAdjustment=0.0
-# minMarker=10
-# level<-c(0.95,0.99,0.999)
-# print(sapply(ls(all.names=TRUE),function(x) eval(parse(text=paste("length(",x,")",sep="")))))
-# peakFinding<-3 #3 is boost, 4 is R
-# recurse=TRUE
  minMarker<-max(1,minMarker)
  foreground_frequency<-as.numeric(foreground_frequency)
  internalData<- cbind(chromosome,positions,foreground_count,background_count,error_count)
-# internalData<- data.frame(V1=chromosome, V2=positions, V3=foreground_count, V4=background_count, V5=error_count)
  internalData<- internalData[rowSums(internalData[,3:5])>minCoverage&rowSums(internalData[,3:5])<maxCoverage,]
  print(paste("Analysing chr ",chromosome[1],", with ",length(chromosome)," (",length(internalData[,1]),") markers for equality to ",foreground_frequency,"(",typeof(foreground_frequency),")",sep=""))
  assign("storage_shoremapmle",matrix(c(-1,-1,-1),nrow=1),".GlobalEnv")
-# assign("savedCalc_shoremapmle",0,".GlobalEnv") 
  #apply filtering here:
  filtered=c();
  if(filterOutliers>0){ #condition
@@ -57,7 +48,6 @@ ShoreMap.confint <- function(chromosome,positions, background_count, foreground_
  freqs<-internalData[,3]/rowSums(internalData[,3:5])
  assign("i_shoremapmle",0,".GlobalEnv")
  minWindow<-max(minMarker,2)
-# bestsize<- ceiling((max(table(sapply(2:length(freqs),function(x) if(freqs[x]==freqs[x-1]){i_shoremapmle}else{assign("i_shoremapmle",i_shoremapmle+1,".GlobalEnv");i_shoremapmle})))+1)/5)*5
  bestsize<-max(minMarker,2)
  bestsize<-max(bestsize,minWindow)
 # print(paste("Bestsize:",bestsize))
@@ -86,14 +76,8 @@ ShoreMap.confint <- function(chromosome,positions, background_count, foreground_
   avg_boost<-abs(1/(1-max(foreground_frequency,1-foreground_frequency)/pmax(avg_freq,1-avg_freq)))
   boostMax<-max(avg_boost[!is.infinite(avg_boost)])
   avg_boost[is.infinite(avg_boost)]<-boostMax
-#  avg_boost<-avg_boost/max(avg_boost)
   avg_posFreq<-cbind(avg_pos,avg_freq,avg_boost,avg_R)
   avg_posFreq<-t(sapply(sort(avg_posFreq[,1],index.return=T)$ix,function(x) avg_posFreq[x,]))
-  #avg_minIndex<-which(min(abs(avg_posFreq[,2]-foreground_frequency))==abs(avg_posFreq[,2]-foreground_frequency))
-
-
-
-
 
   ci<-matrix(c(0,0,920,1,0),nrow=5)
   if(level[1]<=1){
@@ -141,14 +125,11 @@ ShoreMap.confint <- function(chromosome,positions, background_count, foreground_
    if(!is.null(dim(res))&&dim(res)[1]>0){
     ci<-matrix(apply(res,1,function(x) t(c(start=ifelse(x[3]<0,internalData[max(x[1]-1,1),2]+1,0), stop=ifelse(x[3]<0,internalData[min(x[1]+x[2],length(internalData[,2])),2]-1,0),p.value=ifelse(x[3]<0,x[4]+x[3]+x[2],x[3]),level=x[4],nrOfMarkers= x[2]))),nrow=5)
     print("Found interval:")
-#    print(ci)
     for(i in 1:length(ci[1,])){
      print(paste(ci[1,i],"-",ci[2,i],"level:",ci[4,i]))
     }
    }
   }
-#  plot(ci)
-#  apply(ci,2,function(x) print(paste(x[1],"-",x[2])))
   list(confidenceInterval=ci,excluded=filtered,averaged=avg_posFreq)
  }else{
   #too few markers
@@ -185,7 +166,6 @@ filterSampling<-function(internalData,fs_windowsize=200000,fs_limit=0.05,fs_exac
   curIndex<-which.max(diffDataMod)
 
   curPos<-allPos[curIndex]
-  if(curPos==19806951) break
   #start and end of window
   start<-max(chrStart,curPos-fs_windowsize/2) #0
   end<- start + fs_windowsize #0
@@ -198,22 +178,20 @@ filterSampling<-function(internalData,fs_windowsize=200000,fs_limit=0.05,fs_exac
   curWin2<-curWin1+0.5
   use1<-abs((curWin1%%1)-0.5)<abs((curWin2%%1)-0.5)
   curWin1<-which(uniqueWin1==floor(curWin1))
- # if(curWin1==178) break
   curWin2<-which(uniqueWin2==floor(curWin2))
-#  print(paste(curWin1,curWin2))
   red<-c()
   curSize<-0
   if(use1){
    #include markers within window
    toUse<-data1[[curWin1]][,1]>=start &data1[[curWin1]][,1]<=end
-   #add four closest markers
+   #add two closest markers
    toUse<- toUse | 1:length(toUse) %in% sort(abs(data2[[curWin2]][,1]-curPos),index.return=TRUE)$ix[1:min(3,length(toUse))]
    curSize<-sum(toUse)
    red<-data1[[curWin1]][toUse,]
   }else{
    #include markers within window
    toUse<-data2[[curWin2]][,1]>=start &data2[[curWin2]][,1]<=end
-   #add four closest markers
+   #add two closest markers
    toUse<- toUse | 1:length(toUse) %in% sort(abs(data2[[curWin2]][,1]-curPos),index.return=TRUE)$ix[1:min(3,length(toUse))]
    curSize<-sum(toUse)
    red<-data2[[curWin2]][toUse,]
@@ -225,21 +203,11 @@ filterSampling<-function(internalData,fs_windowsize=200000,fs_limit=0.05,fs_exac
     p.win<-colSums(red2[,2:4])
     p.win<-p.win+1/500 
     p.win<-p.win/sum(p.win) #0
-
-    
-#   if(fs_exact){
-#    sink("/dev/null");
-#    p<-multinomial.test(x,prob=fs_p.win)$p.value
-#    sink();
-#   }else{
     fs_p1<-p.win[3] #0
     fs_p2<-p.win[1]/sum(p.win[1:2]) #0
     pbinom(x[3]+ifelse(x[3]<sum(x)*fs_p1,1,-1),size=sum(x),prob=fs_p1,lower.tail=x[3]<sum(x)*fs_p1)*pbinom(x[1]+ifelse(x[1]<sum(x[1:2])*fs_p2,1,-1),size=sum(x[1:2]),prob=fs_p2,lower.tail=x[1]<sum(x[1:2])*fs_p2) #0.001
-#   }
    }else{
     1
-#print("A4")
-#print(p)
    }
   }else{
    1
@@ -304,15 +272,14 @@ if(is.na(p)) { p=0 }
 
 
 identify_peaks <- function(indexL,indexH,frequency,level,minWindow,avg_posFreq,bestsize,recurse,forceInclude=TRUE,allowAdjustment=0.05){
+ require(bbmle)
  assign("storage_shoremapmle",matrix(c(-1,-1,-1),nrow=1),".GlobalEnv")
  if(indexH-indexL>min(minWindow,bestsize)){ #too small window
-#  print(paste(indexL,indexH,bestsize,sep=" ### "))
   cur_indices<-indexL:indexH
   avg_toUse<-avg_posFreq[,1]>=min(dataset_shoremapmle[cur_indices,2]) & avg_posFreq[,1]<=max(dataset_shoremapmle[cur_indices,2])
   if(sum(avg_toUse)>1){ #too few windowed markers
    avg_pf<-avg_posFreq[avg_toUse,]
    #try to find peaks
-#   starts<-avg_pf[which(min(abs(avg_pf[,2]-frequency))==abs(avg_pf[,2]-frequency)),1]
    starts<-avg_pf[which(avg_pf[,2]==max(avg_pf[,2])),1]
    while(length(starts)>0){
     start<- starts[ceiling(length(starts)/2)]
@@ -413,7 +380,6 @@ identify_peaks <- function(indexL,indexH,frequency,level,minWindow,avg_posFreq,b
 
 loglikelihood_mult <- function(llm_P1=0.5,llm_err=0.01,llm_index=0,llm_size=0){
  #the loglikelihood function. Returns 110000 for unvalid p-values
-# if(P1<0 || P1>1 || err<1e-2 || err>1) {
  if(is.na(llm_P1) || is.na(llm_err) || llm_size<0){
   220000
  } else if(llm_P1<0 || llm_P1>1 || llm_err<0 || llm_err>1) {
@@ -421,7 +387,6 @@ loglikelihood_mult <- function(llm_P1=0.5,llm_err=0.01,llm_index=0,llm_size=0){
  }else{
   llm_P1<-as.numeric(llm_P1)
   llm_err<-as.numeric(llm_err)
-  #print(paste(llm_P1,llm_err,sep="##"))
   llm_p1<- llm_P1*(1-4*llm_err/3)+llm_err/3
   llm_pe<- 2*llm_err/3
   llm_p2<- 1-llm_p1-llm_pe
@@ -461,7 +426,6 @@ maxConf<-function(x,level=0.95,freq=0,indexL=0,indexH=Inf,minWindow=10,include=c
  #function to minimize for the optimization of the interval
  start<-floor(x[1])
  size<-floor(x[2])
-# print(paste(start,size,sep=" ## "))
  indexL<- max(1,indexL)
  indexH<- min(length(dataset_shoremapmle[,2]),indexH)
  if(size<minWindow){
@@ -480,17 +444,14 @@ maxConf<-function(x,level=0.95,freq=0,indexL=0,indexH=Inf,minWindow=10,include=c
   #check storage
   if(sum(storage_shoremapmle[,1]==start&storage_shoremapmle[,2]==size)==1){
    res<-storage_shoremapmle[storage_shoremapmle[,1]==start&storage_shoremapmle[,2]==size,3]
-#   assign("savedCalc_shoremapmle",savedCalc_shoremapmle+1,".GlobalEnv")
    res
   }else{
    #if not in storage, calculate
    fit<-multll(start,size)
-#   fit<- restrictedModel(freq-1/1000,start,size)
    if(fit$min>100000){
     res<-fit$min
    }else{
     restrictedFit<- restrictedModel(freq,start,size)
-#    p<- pchisq(-2*(fit@min-restrictedFit@min),1)
     p<- pchisq(-2*(fit$min-restrictedFit@min),1)
     if(p<=level){
      res<- -size-(level-p)
@@ -499,7 +460,6 @@ maxConf<-function(x,level=0.95,freq=0,indexL=0,indexH=Inf,minWindow=10,include=c
     }
    }
    assign("storage_shoremapmle",rbind(storage_shoremapmle,c(start,size,res)),".GlobalEnv")
-#   print(paste(start,size,res,sep=" ## "))
    res
   }
  }
