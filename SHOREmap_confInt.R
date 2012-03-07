@@ -213,9 +213,8 @@ filterSampling<-function(internalData,fs_windowsize=200000,fs_limit=0.05,fs_exac
    1
   }
   #judgement
-if(is.na(p)) { p=0 }
+  if(is.na(p)) { p=0 }
   if(p<=limit){ #0.011
-
    #mark outlier
    if (length(data1[[curWin1]][data1[[curWin1]][,1]==curPos,5]) != 0) {
     data1[[curWin1]][data1[[curWin1]][,1]==curPos,5]<-TRUE #0.001
@@ -223,7 +222,6 @@ if(is.na(p)) { p=0 }
    if (length(data2[[curWin2]][data2[[curWin2]][,1]==curPos,5]) != 0) {
     data2[[curWin2]][data2[[curWin2]][,1]==curPos,5]<-TRUE #0.001
    }
-}
    diffDataMod[curIndex]<--2 #0.001
   
    #recalculate diff values for neighboring markers
