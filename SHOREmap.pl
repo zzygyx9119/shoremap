@@ -9,6 +9,7 @@
 #  Korbinian Schneeberger
 #  Karl Nordstroem
 #  Geo Velikkakam James
+#
 ##############################################################################################
 
 use strict;
@@ -385,21 +386,41 @@ sub print_allele_count {
 ### Read command line parameters
 sub init_global {
 	my $usage_global = " 
-SHOREmap 2.0
-
 Usage: SHOREmap.pl COMMAND [COMMAND_arguments]
 
 COMMAND is one of:
 
-outcross	Analysis on outcrossed population by mapping interval approach
-backcross	Analysis on backcrossed population
+outcross        Analysis of outcross-mapping population 
+backcross       Analysis of backcross-mapping population
 
-about		Print contact details
+about           Print contact details
 ";
 	my $about = "
 SHOREmap 2.0
 
-Publication and citation details as follows	
+
+The development of SHOREmap started in the lab of Detlef Weigel and is also continued in Korbinian Schneeberger's lab.
+
+
+SHOREmap was written by 
+
+Korbinian Schneeberger
+Stephan Ossowski
+Geo Velikkakam James
+Karl Nordstroem
+
+
+
+SHOREmap publications:
+
+Original publication:
+Schneeberger, K., Ossowski, S., Lanz, C., Juul, T., et al. (2009) SHOREmap: simultaneous mapping and mutation identification by deep sequencing. Nat Methods. 6, 550-551.
+
+Confidence interval calculations have been introduced here:
+Galvão, V. C., Nordström, K. J., Lanz, C., Sulz, P., et al. (2012) Synteny-based Mapping-by-Sequencing enabled by Targeted Enrichment. Plant J.
+
+Analysis of isogenic mapping populations was first described here:
+Hartwig, B., Velikkakam James, G., et al. (2012) Fast isogenic mapping-by-sequencing of EMS-induced mutant bulks. under review.
 
 ";
 
@@ -429,8 +450,7 @@ Publication and citation details as follows
 
 sub init_outcross {
 
-	my $usage_out = "\nSHOREmap 2.0 
-
+	my $usage_out = "
 Usage: $0 outcross [Options]
 
 Mandatory:
@@ -756,30 +776,30 @@ See documentation for file formats.
 }
 
 sub initi_backcross{
-	my $usage_back = "\nSHOREmap 2.0
-
+	my $usage_back = "
 Usage: $0 backcross [Options]
 
 Mandatory:
---marker	STRING		Marker file. Quality_varient file(SHORE format)
---chrsizes	STRING		Tabed file with chromosome name and size
---out		STRING		Output folder (will create)	
+--marker        STRING       Marker file (variation file)
+--chrsizes      STRING       Chromosome file; ID and size
+--out           STRING       Output folder
 
 Optional:
---bg		STRING		Background file in SHORE format to clean varient file (comma(,) separate if more than one)
---score		INT		Score cutoff for filtering markers
-				(Default: 24)
---freq		INT		Concordance value for cutoff
-				(Default: 80)
---reads		INT		Minimum read support for marker
+--bg            STRING       Background file (variation file) 
+                             (comma-separated if more than one)
+--score         INT          Score cutoff for filtering markers
+                             (default: 24)
+--freq          INT          Minimum frequency (WHAT GENOTYPE?)
+                             (Default: 80)
+--reads         INT          Minimum read support
 			
 
 Plotting options:
--summary			Turn off ploting all chromosome in single page as summary
--other_mutant			Mutagenic study is not a EMS
--only_EMS			Plot only EMS mutations
--filter				Plot only filtered SNP
--verbose                	Be talkative
+-summary                     Turn off ploting all chromosome in single page as summary
+-other-mutant                Mutagenic study is not a EMS
+-only-EMS                    Plot only EMS mutations
+-filter                      Plot only filtered SNP
+-verbose                     Be talkative
 ";
 	
 	if ($#ARGV == 0) {
@@ -787,21 +807,21 @@ Plotting options:
 		exit();
 	}
 
-	GetOptions(\%CMD, "marker=s", "out=s", "chrsizes=s", "bg=s" , "score=i" , "freq=i" , "reads=i", "summary" , "other_mutant" ,"only_EMS" ,"filter","verbose" );
+	GetOptions(\%CMD, "marker=s", "out=s", "chrsizes=s", "bg=s" , "score=i" , "freq=i" , "reads=i", "summary" , "other-mutant" ,"only-EMS" ,"filter","verbose" );
 	
 	if(defined $CMD{marker}){
 		$marker = $CMD{marker};
 	}else{
-		die "Give a marker file \n $usage_back \n";
+		die "Marker file missing\n $usage_back \n";
 	}
 
 	if(defined $CMD{out}){
 		$out_folder = $CMD{out};
 	}else{
-		die "Give a output folder \n $usage_back \n";
+		die "Output folder missing \n $usage_back \n";
 	}
 	if(-e $out_folder){
-		die "Folder $out_folder already exists\n";	
+		die "Output folder $out_folder already exists\n";	
 	}else{
 		mkdir($out_folder);
 		open LOG, ">$out_folder/SHOREmap.log" or die "Can't open the file". $out_folder."/SHOREmap.log";
@@ -826,14 +846,13 @@ Plotting options:
 		$background_file = $CMD{bg};
 		print LOG "--bg $background_file ";
 		clean_bg();
-#		read_marker();
 	}else{
 		$run_file = $marker;
 	}
 	
 	if(defined $CMD{score}){
 		$score = $CMD{score};
-		print LOG "--score $score ";	
+		print LOG "--score $score ";
 	}
 	
 	if(defined $CMD{freq}){
@@ -851,16 +870,16 @@ Plotting options:
 		print LOG "-summary ";
 	}
 
-	if(defined $CMD{only_EMS}){
+	if(defined $CMD{"only-EMS"}){
 		$only_EMS = 1;
-		print LOG "-only_EMS ";
+		print LOG "-only-EMS ";
 	}
 
-	if(defined $CMD{other_mutant}){
+	if(defined $CMD{"other-mutant"}){
 		$other_mutant = 1;
-		print LOG "-other_mutant ";
+		print LOG "-other-mutant ";
 		if(defined $CMD{only_EMS}){
-			print STDERR "other_mutant and only_EMS flags are turned on at same time... only_EMS is off now \n";
+			print STDERR "other_mutant and only_EMS flags are turned on at same time... only-EMS flag is switched off. \n";
 			$only_EMS =1;
 		}
 	}
@@ -870,7 +889,6 @@ Plotting options:
 		print LOG "-filter ";
 	}
 
-
 	print LOG "\n";
 	close LOG;
 }
@@ -878,49 +896,51 @@ Plotting options:
 sub clean_bg {
 #	my ($bg, $var) = @_;
 	my %BG = ();
-	my %VAR = ();
 	my @files = split ",", $background_file;
+
+	print STDERR "Background corretion finished\n" if($verbose);
 
 	foreach my $file (@files) {
 		open FILE, $file or die "Can't open background file $file \n";
 		while (my $line = <FILE>) {
 			my @a = split " ", $line;
-			next if($a[1] =~ /^mit/ or $a[1] =~ /^chl/);
+			# GEO couldn't this be a bit risky?
+			#next if($a[1] =~ /^mit/ or $a[1] =~ /^chl/);
 			$BG{$a[1]."#".$a[2]} = 1;
 		}
 		close FILE;
 	}
 
+	my $out_tem = $out_folder."/SHOREmap_marker.bg_corrected";
+	open OUT, ">".$out_tem or die "Can't open $out_tem file\n";
 	open FILE, $marker or die "Can't open marker file $marker \n";
 	while (my $line = <FILE>) {
 		my @a = split " ", $line;
-		next if($a[1] =~ /^mit/ or $a[1] =~ /^chl/);
+		# GEO couldn't this be a bit risky?
+		#next if($a[1] =~ /^mit/ or $a[1] =~ /^chl/);
 		if (not defined($BG{$a[1]."#".$a[2]})) {
-			my $id;
-			if($a[1] =~ /\d+/){
-				$id = ($a[1] * 100000000) + $a[2];
-			}else{
-				next;
-			}
-			$VAR{$id} = $line;
+			#my $id;
+			#if($a[1] =~ /\d+/){
+				# GEO this ONLY works as long as the chromosomes are not longer then 100 million.. maybe you could change the encoding?
+				#$id = ($a[1] * 100000000) + $a[2];
+			#}else{
+			#	next;
+			#}
+			#$VAR{$a[1]}{$a[2]} = $line;
+			
+			print OUT $line;
 		}
 	}
-	print STDERR "cleaning background\n" if($verbose);
-	my $out_tem = $out_folder."/SHOREmap_marker_bg_cleaned";
-	open OUT, ">".$out_tem or die "Can't open $out_tem file\n";
-	foreach my $key (sort {$a <=> $b} keys %VAR) {
-		print OUT $VAR{$key};
-	}
+	close FILE;
 	close OUT;
 	
-	print STDERR "Finished cleaning background\n" if($verbose);
+	print STDERR "Finished cleaning for background variations\n" if($verbose);
 	$run_file = $out_tem;
-	
-
-	
+		
 }
 
 sub filter_file{
+
 	open VAR, $run_file or die "Can't open file $run_file \n";
 	my $out_file1 = $out_folder."/SHOREmap_marker";
 	my $out_file2 = $out_folder."/SHOREmap_marker";
@@ -928,11 +948,12 @@ sub filter_file{
 	my $plot_frq = 0.2;
 
 	if($run_file =~ /$out_folder/){
+		# GEO if the marker file is given as absolute path, than this will write these files next to files that are NOT in the output folder, is this intended?
 		$out_file1 = $run_file;
 		$out_file2 = $run_file;
-		$EMS_file = $run_file;
-		
+		$EMS_file = $run_file;	
 	}
+
 	if($read>0){
 		$out_file1 .= "_r$read"."_q$score";
 		$out_file2 .= "_r$read"."_q$score"."_f$freq";
@@ -946,16 +967,15 @@ sub filter_file{
 
 	while(my $line = <VAR>){
 		my @line = split("\t",$line);
-		if($read >0){
+		if($read>0){
 			next unless($line[6]>= $read)
 		}
 		
 		print OUT1 $line if($line[5] >= $score);
-		print OUT2 $line if($line[5] >= $score && ($line[7]*100 >=$freq));
-				
+		print OUT2 $line if($line[5] >= $score && ($line[7]*100 >=$freq));		
 	}
 	
-	close VAR ;
+	close VAR;
 	close OUT1;
 	close OUT2;
 	
@@ -973,7 +993,7 @@ sub filter_file{
 			if(($line[3] eq "G" and $line[4] eq "A") or ($line[3] eq "C" and $line[4] eq "T")){
 				print EMS $line;
 			}else{
-				next;		
+				next;
 			}
 		}
 	}
@@ -999,6 +1019,6 @@ sub filter_file{
 	print STDERR "Starting to plot\n" if($verbose);
 	
 	##calling ploting script	
-	my $call_R = "R --slave --vanilla --args $R_input $R_out $chrsizes $summary $only_EMS $other_mutant $plot_frq< ".$FindBin::Bin."/SHORE_BC_plot.R" ;
+	my $call_R = "R --slave --vanilla --args $R_input $R_out $chrsizes $summary $only_EMS $other_mutant $plot_frq< ".$FindBin::Bin."/SHOREmap_BC_plot.R" ;
 	system($call_R);
 }
