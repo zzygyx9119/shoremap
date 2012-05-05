@@ -803,7 +803,7 @@ Optional:
 
 Plotting options:
 -summary                     Turn off ploting all chromosome in single page as summary
--non-filter                  Plot only all markers (all markers after background corretion)
+-non-filter                  Plot all markers after background corretion
 
 -non-EMS                     Plot non-canonical EMS (marked as \"x\") mutations
 -other-mutagen               Mutagen used for screening is not EMS
