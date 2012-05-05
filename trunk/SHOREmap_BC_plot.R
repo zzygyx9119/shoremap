@@ -6,7 +6,7 @@ chrsize <-read.table(arg[7])
 summary <-arg[8]
 only_EMS <- arg[9]
 other_mutant <-arg[10]
-min_fre <-as.numeric(arg[11])
+min_fre =0
 
 
 
