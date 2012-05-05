@@ -74,7 +74,7 @@ my $bg_freq =20;
 my $summary =1;
 my $only_EMS =1;
 my $other_mutant=0;
-my $filter_plot =0;
+my $filter_plot =1;
 my $R_input;
 my $R_out;
 
@@ -803,7 +803,7 @@ Optional:
 
 Plotting options:
 -summary                     Turn off ploting all chromosome in single page as summary
--filter                      Plot only filtered SNP
+-non-filter                  Plot only all markers (all markers after background corretion)
 
 -non-EMS                     Plot non-canonical EMS (marked as \"x\") mutations
 -other-mutagen               Mutagen used for screening is not EMS
@@ -816,7 +816,7 @@ Plotting options:
 		exit();
 	}
 
-	GetOptions(\%CMD, "marker=s", "out=s", "chrsizes=s", "bg=s" , "marker-score=i" , "marker-freq=i" , "marker-cov=i", "bg-score=i","bg-freq=i","bg-cov=i","summary" , "other-mutagen" ,"non-EMS" ,"filter","verbose" );
+	GetOptions(\%CMD, "marker=s", "out=s", "chrsizes=s", "bg=s" , "marker-score=i" , "marker-freq=i" , "marker-cov=i", "bg-score=i","bg-freq=i","bg-cov=i","summary" , "other-mutagen" ,"non-EMS" ,"non-filter","verbose" );
 	
 	if(defined $CMD{marker}){
 		$marker = $CMD{marker};
@@ -907,8 +907,8 @@ Plotting options:
 		}
 	}
 
-	if(defined $CMD{filter}){
-		$filter_plot =1;
+	if(defined $CMD{"non-filter"}){
+		$filter_plot =0;
 		print LOG "-filter ";
 	}
 
