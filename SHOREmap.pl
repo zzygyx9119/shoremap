@@ -59,16 +59,20 @@ my $boost_max;
 my $plot_boost;
 my $no_marker;
 
-my $background_file =0;
-my $score =24;
-my $read =0;
-my $freq =80;
+my $marker_score =25;
+my $marker_read =0;
+my $marker_freq =20;
 my $run_file;
+
+my $background_file;
+my $bg_score =0;
+my $bg_read =0;
+my $bg_freq =20;
 
 #####ploting related vari####
 
 my $summary =1;
-my $only_EMS =0;
+my $only_EMS =1;
 my $other_mutant=0;
 my $filter_plot =0;
 my $R_input;
@@ -249,6 +253,7 @@ sub read_marker {
 		my $pos;
 		my $allele1;
 		my $allele2;
+		$a[1] =~ s/\D*//;
 	        if ($marker_format eq "shore"){
 			$chr = $a[1]; 
 			$pos = $a[2];
@@ -299,7 +304,9 @@ sub read_chromosomes {
 	open FILE, "$chrsizes" or die "Cannot open $chrsizes\n";
 	while (<FILE>) {
 		chomp();
+		next if(/^$/);
 		my @a = split " ";
+		$a[0] =~ s/\D*//;
 		if ($a[1] =~ m/[^0-9.]/ ) { die("Chromosome size not numeric ($_).\n");}
 		$CHR2SIZE{$a[0]} = $a[1];
 	}
@@ -781,24 +788,26 @@ Usage: $0 backcross [Options]
 
 Mandatory:
 --marker        STRING       Marker file (variation file)
---chrsizes      STRING       Chromosome file; ID and size
---out           STRING       Output folder
+--chrsizes      STRING       Chromosome file. File contains chromosome ID and size
+--out           STRING       Output folder. Will be created.
 
 Optional:
---bg            STRING       Background file (variation file) 
-                             (comma-separated if more than one)
---score         INT          Score cutoff for filtering markers
-                             (default: 24)
---freq          INT          Minimum frequency (WHAT GENOTYPE?)
-                             (Default: 80)
---reads         INT          Minimum read support
+--marker-score		INT          Minimum score cutoff for filtering markers (Default: 25)     	                     
+--marker-freq		INT          Minimum concordances (Default: 80)
+--marker-cov		INT          Minimum read support
 			
+--bg			STRING       Background file (variation file). Comma-separated if more than one
+--bg-score		INT	     Minumum score cutoff for filtering background markers
+--bg-freq		INT	     Minumum concordance (Default: 20)
+--bg-cov		INT	     Minimum read support
 
 Plotting options:
 -summary                     Turn off ploting all chromosome in single page as summary
--other-mutant                Mutagenic study is not a EMS
--only-EMS                    Plot only EMS mutations
 -filter                      Plot only filtered SNP
+
+-non-EMS                     Plot non-canonical EMS (marked as \"x\") mutations
+-other-mutagen               Mutagen used for screening is not EMS
+
 -verbose                     Be talkative
 ";
 	
@@ -807,7 +816,7 @@ Plotting options:
 		exit();
 	}
 
-	GetOptions(\%CMD, "marker=s", "out=s", "chrsizes=s", "bg=s" , "score=i" , "freq=i" , "reads=i", "summary" , "other-mutant" ,"only-EMS" ,"filter","verbose" );
+	GetOptions(\%CMD, "marker=s", "out=s", "chrsizes=s", "bg=s" , "marker-score=i" , "marker-freq=i" , "marker-cov=i", "bg-score=i","bg-freq=i","bg-cov=i","summary" , "other-mutagen" ,"non-EMS" ,"filter","verbose" );
 	
 	if(defined $CMD{marker}){
 		$marker = $CMD{marker};
@@ -850,37 +859,51 @@ Plotting options:
 		$run_file = $marker;
 	}
 	
-	if(defined $CMD{score}){
-		$score = $CMD{score};
-		print LOG "--score $score ";
+	if(defined $CMD{"marker-score"}){
+		$marker_score = $CMD{"marker-score"};
+		print LOG "--marker-score $marker_score ";
 	}
 	
-	if(defined $CMD{freq}){
-		$freq = $CMD{freq};
-		print LOG "--freq $freq ";
+	if(defined $CMD{"marker-freq"}){
+		$marker_freq = $CMD{"marker-freq"};
+		print LOG "--marker-freq $marker_freq ";
 	}
 	
-	if(defined $CMD{reads}){
-		$read = $CMD{reads};
-		print LOG "--reads $read ";
+	if(defined $CMD{"marker-cov"}){
+		$marker_read = $CMD{"marker-cov"};
+		print LOG "--marker-cov $marker_read ";
+	}
+	if(defined $CMD{"bg-score"}){
+		$bg_score = $CMD{"bg-score"};
+		print LOG "--bg-score $bg_score ";
+	}
+	
+	if(defined $CMD{"bg-freq"}){
+		$bg_freq = $CMD{"bg-freq"};
+		print LOG "--bg-freq $bg_freq ";
+	}
+	
+	if(defined $CMD{"bg-cov"}){
+		$bg_read = $CMD{"bg-cov"};
+		print LOG "--bg-cov $bg_read ";
 	}
 	
 	if(defined $CMD{summary}){
-		$summary =1;
+		$summary =0;
 		print LOG "-summary ";
 	}
 
-	if(defined $CMD{"only-EMS"}){
-		$only_EMS = 1;
-		print LOG "-only-EMS ";
+	if(defined $CMD{"non-EMS"}){
+		$only_EMS = 0;
+		print LOG "-non-EMS ";
 	}
 
-	if(defined $CMD{"other-mutant"}){
+	if(defined $CMD{"other-mutagen"}){
 		$other_mutant = 1;
-		print LOG "-other-mutant ";
-		if(defined $CMD{only_EMS}){
-			print STDERR "other_mutant and only_EMS flags are turned on at same time... only-EMS flag is switched off. \n";
-			$only_EMS =1;
+		print LOG "-other-mutagen ";
+		if(defined $CMD{"non-EMS"}){
+			print STDERR "other-mutagen and non-EMS flags are turned on at same time... non-EMS flag is switched off. \n";
+			$only_EMS =0;
 		}
 	}
 
@@ -894,40 +917,32 @@ Plotting options:
 }
 
 sub clean_bg {
-#	my ($bg, $var) = @_;
 	my %BG = ();
 	my @files = split ",", $background_file;
-
-	print STDERR "Background corretion finished\n" if($verbose);
 
 	foreach my $file (@files) {
 		open FILE, $file or die "Can't open background file $file \n";
 		while (my $line = <FILE>) {
 			my @a = split " ", $line;
-			# GEO couldn't this be a bit risky?
-			#next if($a[1] =~ /^mit/ or $a[1] =~ /^chl/);
-			$BG{$a[1]."#".$a[2]} = 1;
+			$a[1] =~ s/\D*//;
+			if($a[5]>=$bg_score && $a[6]>=$bg_read && $a[7]*100 >=$bg_freq){
+				$BG{$a[1]."#".$a[2]} = 1;
+			}else{
+				next();
+			}
 		}
 		close FILE;
 	}
+	print STDERR "cleaning background\n" if($verbose);
 
 	my $out_tem = $out_folder."/SHOREmap_marker.bg_corrected";
 	open OUT, ">".$out_tem or die "Can't open $out_tem file\n";
 	open FILE, $marker or die "Can't open marker file $marker \n";
 	while (my $line = <FILE>) {
 		my @a = split " ", $line;
-		# GEO couldn't this be a bit risky?
-		#next if($a[1] =~ /^mit/ or $a[1] =~ /^chl/);
+		$a[1] =~ s/\D*//;
+		next if($a[1] =~ /^$/);
 		if (not defined($BG{$a[1]."#".$a[2]})) {
-			#my $id;
-			#if($a[1] =~ /\d+/){
-				# GEO this ONLY works as long as the chromosomes are not longer then 100 million.. maybe you could change the encoding?
-				#$id = ($a[1] * 100000000) + $a[2];
-			#}else{
-			#	next;
-			#}
-			#$VAR{$a[1]}{$a[2]} = $line;
-			
 			print OUT $line;
 		}
 	}
@@ -945,21 +960,20 @@ sub filter_file{
 	my $out_file1 = $out_folder."/SHOREmap_marker";
 	my $out_file2 = $out_folder."/SHOREmap_marker";
 	my $EMS_file = $out_folder."/SHOREmap_marker";
-	my $plot_frq = 0.2;
+#	my $plot_frq = 1;
 
 	if($run_file =~ /$out_folder/){
-		# GEO if the marker file is given as absolute path, than this will write these files next to files that are NOT in the output folder, is this intended?
 		$out_file1 = $run_file;
 		$out_file2 = $run_file;
 		$EMS_file = $run_file;	
 	}
 
-	if($read>0){
-		$out_file1 .= "_r$read"."_q$score";
-		$out_file2 .= "_r$read"."_q$score"."_f$freq";
+	if($marker_read>0){
+		$out_file1 .= "_r$marker_read"."_q$marker_score";
+		$out_file2 .= "_r$marker_read"."_q$marker_score"."_f$marker_freq";
 	}else{
-	 	$out_file1 .= "_q$score";
-		$out_file2 .= "_q$score"."_f$freq";
+	 	$out_file1 .= "_q$marker_score";
+		$out_file2 .= "_q$marker_score"."_f$marker_freq";
 	}
 	open OUT1, ">".$out_file1 or die "Can't open file $out_file1 \n ";
 	open OUT2, ">".$out_file2 or die "Can't open file $out_file2 \n ";
@@ -967,12 +981,12 @@ sub filter_file{
 
 	while(my $line = <VAR>){
 		my @line = split("\t",$line);
-		if($read>0){
-			next unless($line[6]>= $read)
+		if($marker_read>0){
+			next unless($line[6]>= $marker_read)
 		}
 		
-		print OUT1 $line if($line[5] >= $score);
-		print OUT2 $line if($line[5] >= $score && ($line[7]*100 >=$freq));		
+		print OUT1 $line if($line[5] >= $marker_score);
+		print OUT2 $line if($line[5] >= $marker_score && ($line[7]*100 >=$marker_freq));		
 	}
 	
 	close VAR;
@@ -980,10 +994,10 @@ sub filter_file{
 	close OUT2;
 	
 	unless($other_mutant){
-		if($read>0){
-			$EMS_file .= "_r$read"."_q$score"."_f$freq"."_EMS";
+		if($marker_read>0){
+			$EMS_file .= "_r$marker_read"."_q$marker_score"."_f$marker_freq"."_EMS";
 		}else{
-			$EMS_file .= "_q$score"."_f$freq"."_EMS";
+			$EMS_file .= "_q$marker_score"."_f$marker_freq"."_EMS";
 		}
 		open OUT2, $out_file2 or die "can't open file $out_file2 \n ";
 		open EMS , ">".$EMS_file  or die "Can't open the file $EMS_file \n";
@@ -1001,7 +1015,7 @@ sub filter_file{
 	if($filter_plot > 0){
 		$R_input = $out_file2;
 		$R_out = $out_file2;
-		$plot_frq = $freq/100;
+#		$plot_frq = $marker_freq/100;
 	}else{
 		$R_input = $run_file ;	
 		if($background_file){
@@ -1018,7 +1032,7 @@ sub filter_file{
 	print STDERR "Finished filtering\n" if($verbose);
 	print STDERR "Starting to plot\n" if($verbose);
 	
-	##calling ploting script	
-	my $call_R = "R --slave --vanilla --args $R_input $R_out $chrsizes $summary $only_EMS $other_mutant $plot_frq< ".$FindBin::Bin."/SHOREmap_BC_plot.R" ;
+	##calling ploting script
+	my $call_R = "R --slave --vanilla --args $R_input $R_out $chrsizes $summary $only_EMS $other_mutant < ".$FindBin::Bin."/SHOREmap_BC_plot.R" ;
 	system($call_R);
 }
