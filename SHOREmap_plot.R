@@ -25,11 +25,11 @@ boostMax<-as.numeric(args[22])
 plotBoost<-as.numeric(args[23])
 peakwinsize<-as.numeric(args[24])
 peakwinstep<-as.numeric(args[25])
-no_marker<-as.numeric(args[26])
+plot_marker<-as.numeric(args[26])
 runid<-as.numeric(args[27])
 
 
-print(no_marker)
+#print(no_marker)
 
 ##########################################
 # Load libraries
@@ -156,7 +156,7 @@ for (chr in 1:(length(chrsize$V1))) {
 
 			####################################################
 			# Plot AFE
-			if (no_marker == 0) {
+			if (plot_marker == 1) {
 				points(data$V2[data$V1[]==chrname], freq, ylim=c(y_min, y_max+0.2), col=ifelse(ci_filtered, "purple2", "lightblue"), xlim=c(x_min, x_max), pch=ifelse(ci_filtered, 4, 18), bg=ifelse(ci_filtered, "purple2", "lightblue")) # cex=0.75)
 			}
 
