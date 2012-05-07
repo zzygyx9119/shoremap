@@ -73,7 +73,7 @@ if($dist_file ne "") {
 else {
 	$peak_pos = 1;
 }
-print STDERR "\n\nMax peak in interval: ". $peak_pos ."\n\n";
+#print STDERR "\n\nMax peak in interval: ". $peak_pos ."\n\n";
 
 
 ### Parse known reference sequence errors
@@ -399,7 +399,8 @@ open SNPOUT, ">snp.priority.txt" or die "Cannot open SNP output file\n";
 foreach my $pos (sort {$snps->{snps}{$a}{peak_distance} <=> $snps->{snps}{$b}{peak_distance}} keys %{$snps->{snps}} ) {
 	print SNPOUT "$chromosome\t$pos\t" . 
 		$snps->{snps}{$pos}{ref_base} . "\t" . $snps->{snps}{$pos}{new_base} . "\t" . 
-		$snps->{snps}{$pos}{peak_distance} . "\t" . $snps->{snps}{$pos}{support} . "\t" . 
+		#$snps->{snps}{$pos}{peak_distance} . "\t" . $snps->{snps}{$pos}{support} . "\t" . 
+		$snps->{snps}{$pos}{support} . "\t" . 
 		sprintf("%.2f", $snps->{snps}{$pos}{concordance}) ."\t" . $snps->{snps}{$pos}{quality};
 
 	if(exists $ref_err{$chromosome}{$pos}) { print SNPOUT "\tREFERR"; }
@@ -483,25 +484,19 @@ sub GetCom {
   my @usage = ("\nUsage: $0
 
 Mandatory:
---snp      STRING     SNP file in Shore format (\"quality_variant.txt\")
+--snp      STRING     Point mutation file
 --chrom    STRING     Chromosome of target region
 --start    INT        Start of target region
 --end      INT        End of target region
 
-Rank by peak distance (optional):
---dist     STRING     Output file of either SHOREmap_interval.pl or SHOREmap_denovo.pl
-                      If file is not specified peak position is set to 1.
-
-Functional SNP and indel annotation (optional, only used if both are specified):
---genome   STRING     Reference sequence file (chromosome names have to be equal to SNP file)
+Functional annotation:
+--genome   STRING     Reference sequence file 
 --gff      STRING     Gene annotation in GFF format
 
-Correct for known reference sequence errors (optional):
---referr   STRING     Reference sequence errors (chr | position)
-
-Small indel annotation (optional):
---del      STRING     Deletion file in Shore format
---ins      STRING     Insertion file in Shore format
+Optional:
+--referr   STRING     Reference sequence errors
+--del      STRING     Deletion file
+--ins      STRING     Insertion file
 \n");
 
 	die(@usage) if (@ARGV == 0);
