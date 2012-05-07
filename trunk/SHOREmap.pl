@@ -24,9 +24,9 @@ my $confidence;
 my $chrsizes;
 my $out_folder;
 my $marker;
-my $marker_format;
+#my $marker_format;
 my $consensus;
-my $consensus_format;
+#my $consensus_format;
 my $window_size;
 my $window_step;
 
@@ -57,7 +57,7 @@ my $r_max;
 my $plot_r;
 my $boost_max;
 my $plot_boost;
-my $no_marker;
+my $plot_marker;
 
 my $marker_score =25;
 my $marker_read =0;
@@ -146,14 +146,14 @@ sub read_allele_counts {
 
         	my $chromosome;
 	        my $position; 
-		if ($consensus_format eq "shore") {
+		#if ($consensus_format eq "shore") {
 			$chromosome = $a[0];
 			$position = $a[1];
-		}
-		elsif ($consensus_format eq "tab") {
-			$chromosome = $a[0]; # DUMMY
-			$position = $a[1];
-		}
+		#}
+		#elsif ($consensus_format eq "tab") {
+		#	$chromosome = $a[0]; # DUMMY
+		#	$position = $a[1];
+		#}
 
 		if (substr($chromosome, 0, 3) eq "Chr") {
 			$chromosome =~ s/Chr//g;
@@ -174,7 +174,7 @@ sub read_allele_counts {
 			my $count_lower_allele = 0;
 			my $count_higher_allele = 0;
 
-			if ($consensus_format eq "shore") {
+			#if ($consensus_format eq "shore") {
 
 				$count_allele1 = $a[4] if ($allele1 eq "A"); 
 				$count_allele1 = $a[5] if ($allele1 eq "C"); 
@@ -195,15 +195,15 @@ sub read_allele_counts {
 				$count_lower_allele = $count_allele1 > $count_allele2 ? $count_allele2 : $count_allele1;
 				$count_higher_allele = $count_allele1 > $count_allele2 ? $count_allele1 : $count_allele2;
 
-			}
-			elsif ($consensus_format eq "tab") {
-                	        $chromosome = $a[0];
-                        	$position = $a[1];
-                        	$count_allele1 = $a[2];
-                        	$count_allele2 = $a[3];
-                        	$count_error = $a[4];
-				
-			}
+			#}
+			#elsif ($consensus_format eq "tab") {
+                	 #       $chromosome = $a[0];
+                        #	$position = $a[1];
+                        #	$count_allele1 = $a[2];
+                        #	$count_allele2 = $a[3];
+                        #	$count_error = $a[4];
+			#	
+			#}
 
 			#if (	$coverage >= $filter_min_coverage and
 			#	($filter_errors == 0 or $count_error < $count_lower_allele or $count_error < 0.2 * $count_higher_allele)
@@ -254,18 +254,18 @@ sub read_marker {
 		my $allele1;
 		my $allele2;
 		$a[1] =~ s/\D*//;
-	        if ($marker_format eq "shore"){
+	        #if ($marker_format eq "shore"){
 			$chr = $a[1]; 
 			$pos = $a[2];
 			$allele1 = $a[3];
 			$allele2 = $a[4];
-        	}
-        	elsif ($marker_format eq "vcf") {
-			$chr = $a[0];
-                        $pos = $a[1]; ## TODO check indels are those correctly doing what I think?
-                        $allele1 = $a[3];
-                        $allele2 = $a[4];
-        	}
+        	#}
+        	#elsif ($marker_format eq "vcf") {
+	#		$chr = $a[0];
+        #                $pos = $a[1]; ## TODO check indels are those correctly doing what I think?
+         #               $allele1 = $a[3];
+          #              $allele2 = $a[4];
+        #	}
 
 		# Check for consistency
 		if (not defined($CHR2SIZE{$chr})) {
@@ -319,7 +319,7 @@ sub write_log {
 	
 	open FILE, ">$out_folder/SHOREmap.log" or die "Cannot open log file\n";
 	print FILE "Working folder: $pwd";
-	print FILE "Command: perl $0 $cross --target $expect --chrsizes $chrsizes --folder $out_folder --marker $marker --marker-format $marker_format --consen $consensus --consen-format $consensus_format --window-size $window_size --window-step $window_step --mis-phenotyped $misphenotyped --min-marker $filter_min_marker --min-coverage $filter_min_coverage --max-coverage $filter_max_coverage --outlier-window-size $outlier_window_size --outlier-pvalue $outlier_pvalue --peak-window-size $peak_window_size --peak-window-step $peak_window_step ";
+	print FILE "Command: perl $0 $cross --target $expect --chrsizes $chrsizes --folder $out_folder --marker $marker --consen $consensus --window-size $window_size --window-step $window_step --mis-phenotyped $misphenotyped --min-marker $filter_min_marker --min-coverage $filter_min_coverage --max-coverage $filter_max_coverage --outlier-window-size $outlier_window_size --outlier-pvalue $outlier_pvalue --peak-window-size $peak_window_size --peak-window-step $peak_window_step ";
 
 	if ($confidence == 2) {
 		print FILE "-no-interval ";
@@ -381,9 +381,8 @@ sub print_allele_count {
 			print OUT $chr, "\t", $pos, "\t", $CHR2POS2ALLELE1_COUNT{$chr}{$pos}, "\t", $CHR2POS2ALLELE2_COUNT{$chr}{$pos}, "\t", $CHR2POS2ERROR_COUNT{$chr}{$pos}, "\n";
 		}
 	}
-	print STDERR "call\n";
 	my $pdffile = "$out_folder/SHOREmap.pdf";
-	my $cmd = "R --slave --vanilla --args $expect $chrsizes $pdffile $out_folder/SHOREmap.zoom_region.txt $window_size $window_step $FindBin::Bin $out_folder $outlier_window_size $outlier_pvalue $confidence $misphenotyped 		$filter_min_marker $filter_min_coverage $filter_max_coverage $r_max $plot_r $boost_max $plot_boost $peak_window_size $peak_window_step $no_marker $runid < ".$FindBin::Bin."/SHOREmap_plot.R"; # 2> /dev/null";
+	my $cmd = "R --slave --vanilla --args $expect $chrsizes $pdffile $out_folder/SHOREmap.zoom_region.txt $window_size $window_step $FindBin::Bin $out_folder $outlier_window_size $outlier_pvalue $confidence $misphenotyped 		$filter_min_marker $filter_min_coverage $filter_max_coverage $r_max $plot_r $boost_max $plot_boost $peak_window_size $peak_window_step $plot_marker $runid < ".$FindBin::Bin."/SHOREmap_plot.R"; # 2> /dev/null";
 	print STDERR $cmd, "\n" if $verbose == 1;
 	$cmd .= " 2> /dev/null" if $verbose == 0;
 	system($cmd);
@@ -461,30 +460,35 @@ sub init_outcross {
 Usage: $0 outcross [Options]
 
 Mandatory:
---chrsizes              STRING   Tabed file with chromosome name and size
+--chrsizes              STRING   Tabed file with chromosome name 
+                                 and size
 --folder                STRING   Output folder
 --marker                STRING   Marker file
---marker-format         STRING   Marker file format, \"shore\" or 
-                                 \"vcf\" (default: \"shore\")
 --consen                STRING   Consensus file 
---consen-format         STRING   Consensus file format, \"shore\" 
-                                 or \"tab\" (default: \"shore\")
 
 Confidence interval:
+-conf-int                        Switch on confidence interval
+                                 calculation
 --target                DOUBLE   Target allele frequency 
                                  (default: 1.0)
 --conf                  DOUBLE   Confidence level
                                  (default: 0.99)
-
---peak-window-size      INT      (default: 50000)
---peak-window-step      INT      (default: 10000)
-                                 Used for initial seed finding
+--peak-window-size      INT      Size of initial window
+                                 (default: 50000)
+--peak-window-step      INT      Distance of initial windows
+                                 (default: 10000)
+--mis-phenotyped        DOUBLE   Degree of putatively
+                                 mis-scored plants
+                                 (default: 0.00)
 
 Visulization:
 --window-size           INT      (default: 50000)
 --window-step           INT      (default: 10000)
                                  Used for smoothed visulization
                                  and \"boost\"-value calculation
+-marker                          Plot single markers
+-plot-r                          Plot frequency calculation (\"r\")
+                                 instead of (\"boost\")
 
 Filter:
 --min-marker            INT      Filter windows with low numbers 
@@ -493,17 +497,13 @@ Filter:
                                  average coverage (default: 0)
 --max-coverage          INT      Filter single marker with high
                                  average coverage (default: Inf)
+-outlier                         Switch on outlier filtering
 --outlier-window-size   INT      Window size to assess local
                                  allele frequency used for 
                                  outlier removal 
                                  (default: 200000)
 --outlier-pvalue        DOUBLE   p-value used for outlier
                                  removal (default: 0.05)
-
-Phenotyping:
---mis-phenotyped        DOUBLE   Degree of putatively
-                                 mis-scored plants
-                                 (default: 0.00)
 
 Zooming:
 --chromosome            INT      Zoom to chromosome ..
@@ -512,16 +512,9 @@ Zooming:
 --minfreq               INT      .. minimal to ..
 --maxfreq               INT      .. maximal frequency.
 
-
 Optional:
 --referrors             STRING   Reference errors file
--plot-r                          Plot frequency calculation (\"r\")
--plot-boost                      Plot frequency calculation 
-                                 (\"boost\")
 -background2                     Mutation is in second parent
--no-interval                     Switch off confidence interval
-                                 calculation
--no-marker                       Do not plot single markers
 -verbose                         Be talkative
 
 See documentation for file formats.
@@ -531,13 +524,11 @@ See documentation for file formats.
 # boost max, r max, runid
 
 	$expect = 1.0;
-	$confidence = 0.99;
+	$confidence = 2; # confidence int calc is switched off
 	$chrsizes = "";
 	$out_folder = "";
 	$marker = "";
-	$marker_format = "shore";
 	$consensus = "";
-	$consensus_format = "shore";
 	$window_size = 50000;
 	$window_step = 10000;
 
@@ -564,10 +555,10 @@ See documentation for file formats.
 	$verbose = 0;	
 
 	$boost_max = 10000;
-	$plot_boost = 0;
+	$plot_boost = 1;
 	$r_max = 10000;
 	$plot_r = 0;
-	$no_marker = 0;
+	$plot_marker = 0;
 
 	$runid = 1;
 
@@ -576,7 +567,7 @@ See documentation for file formats.
 		exit();
 	}
 
-        GetOptions(\%CMD, "target=f", "conf=f", "chrsizes=s", "folder=s", "marker=s", "marker-format=s", "consen=s", "consen-format=s", "window-size=i", "window-step=i", "min-marker=i", "min-coverage=i", "max-coverage=i", "outlier-window-size=i", "outlier-pvalue=f", "mis-phenotyped=f", "chromosome=i", "begin=i", "end=i", "minfreq=f", "maxfreq=f", "verbose", "background2", "referrors=s", "no-interval", "runid=i", "boost-max=i", "plot-boost", "r-max=i", "plot-r", "peak-window-size=i", "peak-window-step=i", "no-marker"); 
+        GetOptions(\%CMD, "outlier", "target=f", "conf=f", "chrsizes=s", "folder=s", "marker=s", "consen=s", "window-size=i", "window-step=i", "min-marker=i", "min-coverage=i", "max-coverage=i", "outlier-window-size=i", "outlier-pvalue=f", "mis-phenotyped=f", "chromosome=i", "begin=i", "end=i", "minfreq=f", "maxfreq=f", "verbose", "background2", "referrors=s", "conf-int", "runid=i", "boost-max=i", "r-max=i", "plot-r", "peak-window-size=i", "peak-window-step=i", "plot-marker"); 
 
 
         die("Please specify chromosome sizes file\n") unless defined($CMD{chrsizes});
@@ -605,7 +596,7 @@ See documentation for file formats.
 		}
         }
 
-	if (defined($CMD{"no-interval"})) {
+	if (not defined($CMD{"conf-int"})) {
 		$confidence = 2;
 	} 
 
@@ -629,12 +620,12 @@ See documentation for file formats.
 	}
 	mkdir($out_folder);
 
-        if (defined($CMD{"marker-format"})) {
-                $marker_format = $CMD{"marker-format"};
-                if ($marker_format ne "shore" and $marker_format ne "vcf") {
-                        die("marker-format has to be \"shore\" or \"vcf\"\n");
-                }
-        }
+        #if (defined($CMD{"marker-format"})) {
+        #        $marker_format = $CMD{"marker-format"};
+        #        if ($marker_format ne "shore" and $marker_format ne "vcf") {
+        #                die("marker-format has to be \"shore\" or \"vcf\"\n");
+        #        }
+        #}
 
         $marker = $CMD{marker};
 	if (!-e $marker) {
@@ -647,12 +638,12 @@ See documentation for file formats.
                 die("File not found: $consensus\n");
         }
 
-	if (defined($CMD{"consen-format"})) {
-                $consensus_format = $CMD{"consen-format"};
-                if ($marker_format ne "shore" and $marker_format ne "tab") {
-                        die("marker-format has to be \"shore\" or \"tab\"\n");
-                }
-        }
+	#if (defined($CMD{"consen-format"})) {
+        #        $consensus_format = $CMD{"consen-format"};
+        #        if ($marker_format ne "shore" and $marker_format ne "tab") {
+        #                die("marker-format has to be \"shore\" or \"tab\"\n");
+        #        }
+        #}
 
 	if (defined($CMD{"window-size"})) {
                 $window_size = $CMD{"window-size"};
@@ -703,6 +694,10 @@ See documentation for file formats.
                 if ($outlier_pvalue =~ m/[^0-9.]/ ) { die("Outlier p-value is not numeric ($outlier_pvalue).\n");}
         }
 
+	if (not defined($CMD{"outlier"})) {
+		$outlier_window_size = 0;
+	}
+
 	if (defined($CMD{"mis-phenotyped"})) {
 		$misphenotyped = $CMD{"mis-phenotyped"};
 		if ($misphenotyped =~ m/[^0-9.]/ ) { die("Misphenotyping is not numeric ($misphenotyped).\n");}
@@ -747,19 +742,17 @@ See documentation for file formats.
                 $runid = $CMD{"runid"};
         }
 
-        if (defined($CMD{"no-marker"})) {
-                $no_marker = 1;
+        if (defined($CMD{"plot-marker"})) {
+                $plot_marker = 1;
         }
 
 	if (defined($CMD{"boost-max"})) {
                 $boost_max = $CMD{"boost-max"};
         }
 
-	if (defined($CMD{"plot-boost"})) {
-                $plot_boost = 1;
-		if (defined($CMD{"plot-r"})) {
-			die("Select either \"r\" or \"boost\".\n");
-		}
+	if (defined($CMD{"plot-r"})) {
+                $plot_boost = 0;
+                $plot_r = 1;
         }
 
 	if (defined($CMD{"r-max"})) {
@@ -787,28 +780,36 @@ sub initi_backcross{
 Usage: $0 backcross [Options]
 
 Mandatory:
---marker        STRING       Marker file (variation file)
---chrsizes      STRING       Chromosome file. File contains chromosome ID and size
---out           STRING       Output folder. Will be created.
+--chrsizes              STRING   Tabed file with chromosome name 
+                                 and size
+--out                   STRING   Output folder
+--marker                STRING   Marker file
 
 Optional:
---marker-score		INT          Minimum score cutoff for filtering markers (Default: 25)     	                     
---marker-freq		INT          Minimum concordances (Default: 80)
---marker-cov		INT          Minimum read support
+--marker-score          INT      Minimum score cutoff for filtering 
+                                 markers (default: 25)     	                     
+--marker-freq           INT      Minimum concordances 
+                                 (default: 80)
+--marker-cov            INT      Minimum read support
 			
---bg			STRING       Background file (variation file). Comma-separated if more than one
---bg-score		INT	     Minumum score cutoff for filtering background markers
---bg-freq		INT	     Minumum concordance (Default: 20)
---bg-cov		INT	     Minimum read support
+--bg                    STRING   Background mutations. 
+                                 Comma-separated if more than one
+--bg-score              INT      Minumum score cutoff for 
+                                 filtering background markers
+--bg-freq               INT      Minumum concordance
+                                 (default: 20)
+--bg-cov                INT      Minimum read support
 
 Plotting options:
--summary                     Turn off ploting all chromosome in single page as summary
--non-filter                  Plot all markers after background corretion
-
--non-EMS                     Plot non-canonical EMS (marked as \"x\") mutations
--other-mutagen               Mutagen used for screening is not EMS
-
--verbose                     Be talkative
+-no-summary                      Turn off ploting all chromosome 
+                                 in single page as summary
+-no-filter                       Plot all markers after background 
+                                 corretion
+-non-EMS                         Plot non-canonical EMS (marked as 
+                                 \"x\") mutations
+-other-mutagen                   Mutagen used for screening is not 
+                                 EMS
+-verbose                         Be talkative
 ";
 	
 	if ($#ARGV == 0) {
@@ -816,7 +817,7 @@ Plotting options:
 		exit();
 	}
 
-	GetOptions(\%CMD, "marker=s", "out=s", "chrsizes=s", "bg=s" , "marker-score=i" , "marker-freq=i" , "marker-cov=i", "bg-score=i","bg-freq=i","bg-cov=i","summary" , "other-mutagen" ,"non-EMS" ,"non-filter","verbose" );
+	GetOptions(\%CMD, "marker=s", "out=s", "chrsizes=s", "bg=s" , "marker-score=i" , "marker-freq=i" , "marker-cov=i", "bg-score=i","bg-freq=i","bg-cov=i","no-summary" , "other-mutagen" ,"non-EMS" ,"no-filter","verbose" );
 	
 	if(defined $CMD{marker}){
 		$marker = $CMD{marker};
@@ -888,9 +889,9 @@ Plotting options:
 		print LOG "--bg-cov $bg_read ";
 	}
 	
-	if(defined $CMD{summary}){
+	if(defined $CMD{"no-summary"}){
 		$summary =0;
-		print LOG "-summary ";
+		print LOG "-no-summary ";
 	}
 
 	if(defined $CMD{"non-EMS"}){
@@ -907,9 +908,10 @@ Plotting options:
 		}
 	}
 
-	if(defined $CMD{"non-filter"}){
+	if(defined $CMD{"no-filter"}){
 		$filter_plot =0;
-		print LOG "-filter ";
+		print LOG "no-filter ";
+
 	}
 
 	print LOG "\n";
