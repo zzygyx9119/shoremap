@@ -79,12 +79,18 @@ read_allele_counts();
 my $outputfile = $out_folder."/SHOREmap.winsize1.txt";
 open OUT, "> ".$outputfile or die "Cannot open outputfile\n";
 
+my $cl = 0;
 foreach my $chr (sort {$a cmp $b} keys %CHR2POS2ALLELE1_COUNT) {
 	foreach my $pos (sort {$a <=> $b} keys %{$CHR2POS2ALLELE1_COUNT{$chr}}) {
 		print OUT $chr, "\t", $pos, "\t", $CHR2POS2ALLELE1_COUNT{$chr}{$pos}, "\t", $CHR2POS2ALLELE2_COUNT{$chr}{$pos}, "\t", $CHR2POS2ERROR_COUNT{$chr}{$pos}, "\n";
+		$cl++;
 	}
 }
 
+if ($cl == 0) {
+	print STDERR "SHOREmap could not detect any markers. Most likely this is due to different chromosome labels in different files. Check all files and remove \"Chr\" and \"chr\" labels at the beginning of chromosome identifier before rerunning SHOREmap.\n";
+	exit(1);
+}
 
 
 ### Create sliding windows ###################################################################
