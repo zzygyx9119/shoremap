@@ -266,7 +266,11 @@ ehc<-ncol(estimates)-1
 toPrint<-sapply(unique(data[,1]),function(chr){
  cq<-sum(qtls$chr==chr)
  ce<-sum(estimates[,1]==chr)
- q<-matrix(c(qtls[qtls$chr==chr,c(1:2,4:ncol(qtls))],recursive=TRUE),ncol=qhc)
+ if(cq>0){
+  q<-matrix(c(qtls[qtls$chr==chr,c(1:2,4:ncol(qtls))],recursive=TRUE),ncol=qhc)
+ }else{
+  q<-1:qhc
+ }
  e<-matrix(estimates[estimates[,1]==chr,c(2:ncol(estimates))],ncol=ehc)
  if(cq>0 && ce>0){
   #get True Positive
