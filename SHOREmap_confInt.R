@@ -133,7 +133,8 @@ ShoreMap.confint <- function(chromosome,positions, background_count, foreground_
   list(confidenceInterval=ci,excluded=filtered,averaged=avg_posFreq)
  }else{
   #too few markers
-  list(confidenceInterval=matrix(c(0,0,919,1,0),nrow=5),excluded=filtered,averaged=c(-1,-1))
+  print("Too few markers")
+  list(confidenceInterval=matrix(c(0,0,919,1,0),nrow=5),excluded=filtered,averaged=matrix(c(-1,-1,-1,-1),ncol=4))
  }
 }
 
@@ -272,10 +273,10 @@ filterSampling<-function(internalData,fs_windowsize=200000,fs_limit=0.05,fs_exac
 identify_peaks <- function(indexL,indexH,frequency,level,minWindow,avg_posFreq,bestsize,recurse,forceInclude=TRUE,allowAdjustment=0.05){
  require(bbmle)
  assign("storage_shoremapmle",matrix(c(-1,-1,-1),nrow=1),".GlobalEnv")
- if(indexH-indexL>min(minWindow,bestsize)){ #too small window
+ if(indexH-indexL>min(minWindow,bestsize)){ #too small window 617
   cur_indices<-indexL:indexH
   avg_toUse<-avg_posFreq[,1]>=min(dataset_shoremapmle[cur_indices,2]) & avg_posFreq[,1]<=max(dataset_shoremapmle[cur_indices,2])
-  if(sum(avg_toUse)>1){ #too few windowed markers
+  if(sum(avg_toUse)>1){ #too few windowed markers 616
    avg_pf<-avg_posFreq[avg_toUse,]
    #try to find peaks
    starts<-avg_pf[which(avg_pf[,2]==max(avg_pf[,2])),1]
