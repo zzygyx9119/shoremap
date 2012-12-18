@@ -469,7 +469,6 @@ Mandatory:
 Confidence interval:
 -conf-int                        Switch on confidence interval
                                  calculation
---target                DOUBLE   Target allele frequency 
                                  (default: 1.0)
 --conf                  DOUBLE   Confidence level
                                  (default: 0.99)
@@ -486,7 +485,7 @@ Visulization:
 --window-step           INT      (default: 10000)
                                  Used for smoothed visulization
                                  and \"boost\"-value calculation
--marker                          Plot single markers
+-plot-marker                     Plot single markers
 -plot-r                          Plot frequency calculation (\"r\")
                                  instead of (\"boost\")
 
