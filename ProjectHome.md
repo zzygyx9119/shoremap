@@ -1,0 +1,1 @@
+This software supports genetic mapping based on the output of resequencing software run on whole genome sequencing data.
